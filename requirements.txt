@@ -1,0 +1,9 @@
+jupyter
+pandas
+openpyxl
+pyxlsb
+pytest
+python-dotenv
+numpy
+pyspark
+supabase

@@ -9,7 +9,7 @@ app = Dash(__name__,
            external_stylesheets=[dbc.themes.BOOTSTRAP],
            suppress_callback_exceptions=True)
 
-app.title = "📖 Databricks Apps Cookbook 🔍"
+app.title = "SolvMate - Testing App"
 
 def create_sidebar():
     nav_items = []
@@ -28,54 +28,19 @@ def create_sidebar():
     
     # Define category and page order
     sidebar_structure = {
-        'Tables': [
-            'Read a table',
-            'Edit a table'
+        'End-to-End': [
+            'End-to-End test'
         ],
-        'Volumes': [
-            'Upload a file',
-            'Download a file'
+        'Market Risk': [
+            'Market (w/o ConcR & Curr)',
+            'CurrR',
+            'ConcR'
         ],
-        'AI / ML': [
-            'Invoke a model',
-            'Run vector search'
-        ],
-        'Business Intelligence': [
-            'AI/BI Dashboard'
-        ],
-        'Workflows': [
-            'Trigger a job',
-            'Retrieve job results'
-        ],
-        'Compute': [
-            'Connect'
-        ],
-        'Authentication': [
-            'Get current user',
-            'Retrieve a secret'
-        ],        
-        'SolvMate': [
-            'Start calculation',
-            'Run overview'
+        'Counterparty Default': [
+            'Type 1',
+            'Type 2',
+            'Counterparty Hyp'
         ]
-    }
-    
-    # Define page-specific icons
-    page_icons = {
-        'Read a table': 'material-symbols:table-view',
-        'Edit a table': 'material-symbols:edit-document',
-        'Upload a file': 'material-symbols:upload',
-        'Download a file': 'material-symbols:download',
-        'Invoke a model': 'material-symbols:model-training',
-        'Run vector search': 'material-symbols:search',
-        'AI/BI Dashboard': 'material-symbols:dashboard',
-        'Trigger a job': 'material-symbols:play-circle',
-        'Retrieve job results': 'material-symbols:list-alt',
-        'Connect': 'material-symbols:link',
-        'Get current user': 'material-symbols:fingerprint',
-        'Retrieve a secret': 'material-symbols:key',
-        'Start calculation': 'material-symbols:calculate',
-        'Run overview': 'material-symbols:fact_check'
     }
     
     # Group pages by category
@@ -98,13 +63,9 @@ def create_sidebar():
                 html.Div([
                     # Category header without icon
                     html.Div(category, className="h6 mt-3 mb-2"),
-                    # Pages under the category with icons
+                    # Pages under the category
                     dbc.Nav([
                         dbc.NavLink([
-                            DashIconify(
-                                icon=page_icons.get(page["name"], "material-symbols:article"),
-                                className="me-2"
-                            ),
                             page["name"]
                         ],
                         href=page["relative_path"],
