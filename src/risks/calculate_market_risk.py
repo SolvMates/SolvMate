@@ -360,9 +360,5 @@ def main(run_id: str = None):
         output_data.to_excel(debug_writer, sheet_name='output_data', index=False)
         results.to_excel(debug_writer, sheet_name='Results', index=True)
 
-    print(f"Debug file saved to: {debug_output_path}")
+    print(f"Debug file saved to: {debug_output_path}") 
 
-
-if __name__ == "__main__":
-    # Run the main function with default run_id
-    main()
