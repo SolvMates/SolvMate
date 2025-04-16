@@ -21,14 +21,14 @@ def convert_coord_to_list(coord):
 
 def get_value_from_df(df, coord):
     coord_list = convert_coord_to_list(coord)
-    row_number = coord_list[0][0] - 1  # Zeilenindex anpassen (0-basiert)
-    column_number = coord_list[0][1] - 1  # Spaltenindex anpassen (0-basiert)
+    row_number = coord_list[0][0] -1   # Zeilenindex anpassen (0-basiert)
+    column_number = coord_list[0][1] -1  # Spaltenindex anpassen (0-basiert)
 
     # Überprüfen, ob die Indizes innerhalb der Grenzen des DataFrames liegen
     if row_number < 0 or row_number >= df.shape[0] or column_number < 0 or column_number >= df.shape[1]:
         return "Koordinaten außerhalb des DataFrame-Bereichs"
     
-    return df.iloc[row_number, column_number]
+    return df.iloc[row_number-1, column_number]
 
 
 
@@ -46,11 +46,11 @@ def load_importdata(input_path: str) -> pd.DataFrame:
         new_value = get_value_from_df(temp_df,coord)
         data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
      
-    return data_id_table.head(100)
+    return data_id_table.head(10)
 
                
 def main():
-    input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")
+    input_path = Path("/workspaces/SolvMate/input/02.02_SAS_Input_MarketR.xlsb")
     return print(load_importdata(input_path))
 
 
