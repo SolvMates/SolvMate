@@ -50,7 +50,7 @@ def load_importdata(input_path: str) -> pd.DataFrame:
 
                
 def main():
-    input_path = Path("/workspaces/SolvMate/input/02.02_SAS_Input_MarketR.xlsb")
+    input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")
     return print(load_importdata(input_path))
 
 
