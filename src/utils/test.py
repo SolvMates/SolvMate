@@ -218,8 +218,10 @@ def run_Import():
     return combined_df  # Return the combined DataFrame
 
 def main():
+    goal_dataframe = run_Import()
     # Call the run_Import function and retrieve a specific value
-    return print(get_value('FX_LOCAL_CCY', run_Import()))
+    print(get_value('FX_LOCAL_CCY',goal_dataframe ))
+    return goal_dataframe
 
 main()  # Execute the main function
 
