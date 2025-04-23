@@ -201,7 +201,9 @@ def get_value(target_data_id: str, dataframe):
 
 def run_Import():
     # List of worksheet names to process
-    worksheets = ['CurrR']
+    worksheets = ['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 
+                  'LnH SLT UW', 'NL NatCat', 'Health cat', 'NatC OthR', 'NL man-made', 'OpRisk', 
+                  'MCR', 'Simplifications']
     dataframes = []  # List to store DataFrames for each worksheet
     input_path = Path("/workspaces/SolvMate/input/02.02_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
     
