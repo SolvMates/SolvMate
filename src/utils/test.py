@@ -69,7 +69,7 @@ import numpy as np
 from datetime import datetime, timezone
 import openpyxl
 from pathlib import Path
-
+from get_Value import get_value 
 
 load_dotenv()
 supabase: Client = create_client(
@@ -199,24 +199,8 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
-def get_value(target_data_id: str, dataframe):
-    # Check if the target data ID exists in the DataFrame
-    if target_data_id in dataframe['DATA_ID'].values:
-        # Check if the value is a string (indicating multiple values)
-        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0], str):
-            # Split the string into a list of values
-            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0].split('$$$$')
-            return data_list  # Return the list of values
-        else:
-            # Retrieve a single value
-            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0]
-    else:
-        return 'Data id not found'  # Return an error message if the data ID is not found
-
-    return data_value  # Return the retrieved value
-
 def run_Import():
-    # List of worksheet names to process ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL nam-made','OpRisk','MCR','Simplifications']
+    # List of worksheet names to process ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
     worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
     dataframes = []  # List to store DataFrames for each worksheet
     input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
