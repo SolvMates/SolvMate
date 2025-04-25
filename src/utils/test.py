@@ -199,12 +199,10 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
-def run_Import():
+def run_Import(worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']):
     # List of worksheet names to process ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
-    worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
     dataframes = []  # List to store DataFrames for each worksheet
     input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
-    
     # Process each worksheet
     for worksheet in worksheets:
         data_id_table = load_importdata(input_path, worksheet)  # Load data for the worksheet
