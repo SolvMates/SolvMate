@@ -94,7 +94,7 @@ def get_value_from_df(df, coord):
     # Check if the row or column index is out of bounds for the DataFrame
     if row_number < 0 or row_number >= df.shape[0] or column_number < 0 or column_number >= df.shape[1]:
         return "Coordinates out of DataFrame bounds"  # Return an error message if the indices are invalid
-
+    
     return df.iloc[row_number, column_number]  # Retrieve the value from the DataFrame at the specified row and column
 
 def convert_excel_range_to_list(coord_range):
@@ -150,6 +150,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         offset += limit  # Increment the offset for the next request
 
     # Add a new column 'Value' to store the extracted values
+    
     data_id_table.insert(1, 'Value', None)
     i = 0  # Counter for debugging purposes
     
@@ -160,7 +161,6 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         i += 1
         # Get the coordinate associated with the current data ID
         coord = data_id_table.loc[data_id_table['DATA_ID'] == id, 'RC_CODE'].values[0]
-        
         # Check if the worksheet matches the target worksheet
         if target_worksheet == data_id_table.loc[data_id_table['DATA_ID'] == id, 'WORKSHEET'].values[0]:
             if id.endswith('*'):  # Check if the data ID ends with '*'
@@ -179,8 +179,20 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
             else:
                 # Retrieve a single value and store it in the DataFrame
                 new_value = get_value_from_df(temp_df, coord)
-                data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
-        
+                if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None:
+                   
+                    if new_value == None:
+                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
+                    elif str(new_value) == 'nan':
+                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
+                    else:
+                        if id == 'INFO_REPORT_DT':
+                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
+                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value             
+                else:
+                    if id == 'INFO_REPORT_DT':
+                        new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
+                    data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
 def get_value(target_data_id: str, dataframe):
@@ -200,10 +212,8 @@ def get_value(target_data_id: str, dataframe):
     return data_value  # Return the retrieved value
 
 def run_Import():
-    # List of worksheet names to process
-    worksheets = ['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 
-                  'LnH SLT UW', 'NL NatCat', 'Health cat', 'NatC OthR', 'NL man-made', 'OpRisk', 
-                  'MCR', 'Simplifications']
+    # List of worksheet names to process ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL nam-made','OpRisk','MCR','Simplifications']
+    worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
     dataframes = []  # List to store DataFrames for each worksheet
     input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
     
@@ -219,8 +229,18 @@ def run_Import():
 
 def main():
     goal_dataframe = run_Import()
-    # Call the run_Import function and retrieve a specific value
-    print(get_value('MKT_SPR_CAP_SIMPL',goal_dataframe ))
+    print(goal_dataframe.head(20))
+    print(get_value('INFO_REPORT_DT',goal_dataframe ))
+    #create excel file
+    output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
+    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+         #Write the goal_dataframe to the specified sheet
+         goal_dataframe.to_excel(
+            writer,
+            sheet_name='Goal DataFrame',
+            index=False,
+            header=True
+         )
     return goal_dataframe
 
 main()  # Execute the main function
