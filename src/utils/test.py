@@ -205,7 +205,7 @@ def run_Import():
                   'LnH SLT UW', 'NL NatCat', 'Health cat', 'NatC OthR', 'NL man-made', 'OpRisk', 
                   'MCR', 'Simplifications']
     dataframes = []  # List to store DataFrames for each worksheet
-    input_path = Path("/workspaces/SolvMate/input/02.02_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
+    input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
     
     # Process each worksheet
     for worksheet in worksheets:
@@ -220,7 +220,7 @@ def run_Import():
 def main():
     goal_dataframe = run_Import()
     # Call the run_Import function and retrieve a specific value
-    print(get_value('FX_LOCAL_CCY',goal_dataframe ))
+    print(get_value('MKT_SPR_CAP_SIMPL',goal_dataframe ))
     return goal_dataframe
 
 main()  # Execute the main function
