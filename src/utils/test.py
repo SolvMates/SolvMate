@@ -1,63 +1,83 @@
 """
-This script provides utility functions for processing data from Excel files and interacting with a Supabase database.
-It includes functions for coordinate conversion, data extraction from Excel ranges, and loading data into a pandas DataFrame.
+This script processes data from Excel files and integrates it with a Supabase database. 
+It extracts, transforms, and combines data from multiple worksheets into a single pandas DataFrame. 
+The processed data is then exported to an Excel file for further use.
 
 Modules:
 --------
 - os: For accessing environment variables.
-- dotenv: To load environment variables from a .env file.
+- dotenv: To load environment variables from a `.env` file.
 - supabase: For interacting with the Supabase database.
 - pandas: For data manipulation and analysis.
 - numpy: For numerical operations.
 - datetime: For working with date and time.
-- openpyxl: For working with Excel files.
+- openpyxl: For writing data to Excel files.
 - pathlib: For handling file paths.
+- get_Value: A custom module for retrieving specific values from a DataFrame.
+
+Environment Setup:
+------------------
+- The script uses environment variables for Supabase credentials:
+  - `SUPABASE_URL`: The URL of the Supabase instance.
+  - `SUPABASE_KEY`: The API key for accessing the Supabase database.
+- These variables are loaded using the `dotenv` module.
+
+Supabase Client Initialization:
+-------------------------------
+- The `supabase` client is created using the `create_client` function from the `supabase` module.
+- This client is used to interact with the Supabase database for fetching and processing data.
+
+Imports:
+--------
+- The script imports necessary libraries and modules for database interaction, data manipulation, and file handling.
+- The `get_value` function from the `get_Value` module is used to retrieve specific values from a DataFrame.
 
 Functions:
 ----------
 1. convert_coord_to_list(coord):
-    Converts a coordinate string (e.g., "R1C1") into a list of row and column indices.
+   - Converts an Excel-style coordinate (e.g., `R1C1`) into a list of row and column indices.
+   - **Parameters**:
+     - `coord` (str): The coordinate string.
+   - **Returns**:
+     - A list containing the row and column indices.
 
 2. get_value_from_df(df, coord):
-    Retrieves a value from a pandas DataFrame based on a given coordinate.
+   - Retrieves a value from a pandas DataFrame based on a given coordinate.
+   - **Parameters**:
+     - `df` (pd.DataFrame): The DataFrame to retrieve the value from.
+     - `coord` (str or list): The coordinate of the value.
+   - **Returns**:
+     - The value at the specified coordinate or an error message if the coordinate is out of bounds.
 
 3. convert_excel_range_to_list(coord_range):
-    Converts an Excel range (e.g., "R1C1:R3C3") into a list of all coordinates within the range.
+   - Converts an Excel-style range (e.g., `R1C1:R3C3`) into a list of all coordinates within the range.
+   - **Parameters**:
+     - `coord_range` (str): The range string.
+   - **Returns**:
+     - A list of all coordinates within the range.
 
 4. load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
-    Loads data from a Supabase table and an Excel file, processes it, and returns a pandas DataFrame.
+   - Loads data from a Supabase table and an Excel worksheet, processes it, and returns a pandas DataFrame.
+   - **Parameters**:
+     - `input_path` (str): Path to the input Excel file.
+     - `target_worksheet` (str): The name of the worksheet to process.
+   - **Returns**:
+     - A pandas DataFrame containing the processed data.
 
-5. get_value(target_data_id: str, dataframe):
-    Retrieves the value(s) associated with a specific data ID from a pandas DataFrame.
+5. run_Import(worksheets: list = [...]) -> pd.DataFrame:
+   - Processes multiple worksheets from an Excel file and combines them into a single DataFrame.
+   - **Parameters**:
+     - `worksheets` (list): A list of worksheet names to process.
+   - **Returns**:
+     - A combined pandas DataFrame containing data from all worksheets.
 
 6. main():
-    Main function to load data from multiple worksheets, combine them into a single DataFrame, and retrieve specific values.
-
-Usage:
-------
-- Ensure the `.env` file contains the `SUPABASE_URL` and `SUPABASE_KEY` environment variables.
-- Place the input Excel file in the specified path.
-- Call the `main()` function to execute the script.
-
-Notes:
-------
-- The script uses the `pyxlsb` engine for reading Excel files in binary format.
-- The `load_importdata` function handles pagination for large datasets from Supabase.
-- The `get_value` function supports retrieving multiple values separated by "$$$$" for ranges.
-
-Example:
---------
-1. Convert a coordinate string to a list:
-    `convert_coord_to_list("R1C1")` -> `[[1, 1]]`
-
-2. Extract a value from a DataFrame:
-    `get_value_from_df(df, [[1, 1]])` -> Returns the value at row 0, column 0.
-
-3. Load data from an Excel file and Supabase:
-    `load_importdata("/path/to/file.xlsb", "Sheet1")` -> Returns a DataFrame with processed data.
-
-4. Retrieve a value by data ID:
-    `get_value("FX_LOCAL_CCY", dataframe)` -> Returns the value(s) for the given data ID.
+   - Executes the entire workflow:
+     - Processes data from multiple worksheets.
+     - Retrieves specific values from the processed DataFrame.
+     - Exports the final DataFrame to an Excel file.
+   - **Returns**:
+     - The final pandas DataFrame.
 
 """
 
@@ -216,7 +236,7 @@ def run_Import(worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR 
 def main():
     goal_dataframe = run_Import()
     print(goal_dataframe.head(20))
-    print(get_value('INFO_REPORT_DT',goal_dataframe ))
+    print(get_value('CPD_NL_EXPPV_FP_EX_R13_S10_***',goal_dataframe ))
     #create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
