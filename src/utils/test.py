@@ -171,7 +171,11 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                 # Retrieve values for each coordinate in the range
                 for coordinate in coord_list:
                     new_value = get_value_from_df(temp_df, coordinate)
-                    Value_list.append(new_value)
+                    if str(new_value) == 'nan' or new_value == 'Coordinates out of DataFrame bounds':
+                        print('')        
+                    else:
+                        Value_list.append(new_value)
+                        
                 
                 # Join the values with '$$$$' and store them in the DataFrame
                 new_value = '$$$$'.join(map(str, Value_list))
