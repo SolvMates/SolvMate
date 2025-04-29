@@ -183,8 +183,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         coord = data_id_table.loc[data_id_table['DATA_ID'] == id, 'RC_CODE'].values[0]
         # Check if the worksheet matches the target worksheet
         if target_worksheet == data_id_table.loc[data_id_table['DATA_ID'] == id, 'WORKSHEET'].values[0]:
-            if id.endswith('*'):  # Check if the data ID ends with '*'
-                print('***')  # Debugging output
+            if id.endswith('*'):  # Check if the data ID ends with '*'                
                 Value_list = []  # Initialize a list to store values
                 coord_list = convert_excel_range_to_list(coord)  # Convert the range to a list of coordinates
                 
@@ -196,7 +195,6 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     else:
                         Value_list.append(new_value)
                         
-                
                 # Join the values with '$$$$' and store them in the DataFrame
                 new_value = '$$$$'.join(map(str, Value_list))
                 data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
@@ -219,15 +217,20 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
-def run_Import(worksheets = ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']):
-    # List of worksheet names to process ['Basic input','MarketR','ConcR','CurrR','CDR','CDR - SCR hyp','net Prem CP','LnH SLT UW','Health cat','NL NatCat','NatC OthR','NL man-made','OpRisk','MCR','Simplifications']
-    dataframes = []  # List to store DataFrames for each worksheet
-    input_path = Path("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb")  # Path to the input Excel file
+def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb", worksheets=['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 'LnH SLT UW', 'Health cat', 'NL NatCat', 'NatC OthR', 'NL man-made', 'OpRisk', 'MCR', 'Simplifications']):
+    input_p = Path(input_path)  # Convert the input path to a Path object
+
+    # Check if the input path exists and is a file
+    if not input_p.exists() or not input_p.is_file():
+        raise FileNotFoundError(f"Invalid input path: {input_path}. Please provide a valid file path.")
+
+    dataframes = []  # Initialize an empty list to store DataFrames
+
     # Process each worksheet
     for worksheet in worksheets:
-        data_id_table = load_importdata(input_path, worksheet)  # Load data for the worksheet
+        data_id_table = load_importdata(input_p, worksheet)  # Load data for the worksheet
         dataframes.append(data_id_table)  # Append the DataFrame to the list
-    
+
     # Combine all DataFrames into a single DataFrame
     combined_df = pd.concat(dataframes, ignore_index=True)
     print(combined_df)  # Print the combined DataFrame for debugging
