@@ -80,7 +80,6 @@ Functions:
      - The final pandas DataFrame.
 
 """
-
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -147,6 +146,7 @@ def convert_excel_range_to_list(coord_range):
     return coordinates  # Return the list of coordinates
 
 def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
+ 
     # Initialize an empty DataFrame to store data from Supabase
     data_id_table = pd.DataFrame()
     offset = 0  # Offset for pagination
@@ -170,12 +170,18 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         offset += limit  # Increment the offset for the next request
 
     # Add a new column 'Value' to store the extracted values
-    
     data_id_table.insert(1, 'Value', None)
     i = 0  # Counter for debugging purposes
     
     # Load the Excel worksheet into a DataFrame
-    temp_df = pd.read_excel(input_path, target_worksheet, header=0, engine='pyxlsb')
+    if input_path.suffix == '.xlsb':
+        temp_df = pd.read_excel(input_path, target_worksheet, header=0, engine='pyxlsb')  # Use 'pyxlsb' for .xlsb files
+    elif input_path.suffix == '.xls':
+        temp_df = pd.read_excel(input_path, target_worksheet, header=0, engine='xlrd')  # Use 'xlrd' for .xls files
+    else:
+        raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
+    
+    
     for id in data_id_table['DATA_ID']:
         print(i)  # Print the counter for debugging
         i += 1
@@ -208,16 +214,18 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     elif str(new_value) == 'nan':
                         data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                     else:
-                        if id == 'INFO_REPORT_DT':
+                        if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb':
                             new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
                         data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value             
                 else:
-                    if id == 'INFO_REPORT_DT':
-                        new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
+                    if input_path.suffix == '.xls':
+                        if id == 'INFO_REPORT_DT':
+                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
+                    
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
-def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xlsb", worksheets=['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 'LnH SLT UW', 'Health cat', 'NL NatCat', 'NatC OthR', 'NL man-made', 'OpRisk', 'MCR', 'Simplifications']):
+def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls", worksheets=['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 'LnH SLT UW', 'Health cat', 'NL NatCat', 'NatC OthR', 'NL man-made', 'OpRisk', 'MCR', 'Simplifications']):
     input_p = Path(input_path)  # Convert the input path to a Path object
 
     # Check if the input path exists and is a file
