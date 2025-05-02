@@ -243,8 +243,6 @@ def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xl
 
 if __name__ == "__main__":
     goal_dataframe = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",['Basic input'])
-    print(goal_dataframe.head(20))
-    print(get_value('SCR_ADDON_NLF_A',goal_dataframe ))
     #create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
