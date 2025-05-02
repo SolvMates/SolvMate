@@ -97,8 +97,8 @@ supabase: Client = create_client(
 )
 def convert_coord_to_list(coord):
     # Convert R..C..Code to Coordinates
-    row = int(coord[1:coord.index('C')])  # Extract the row number from the coordinate string (e.g., "R1C1" -> 1)
-    col = int(coord[coord.index('C') + 1:])  # Extract the column number from the coordinate string (e.g., "R1C1" -> 1)
+    row = int(coord[1:coord.index('C')])  # Extract the row number from the coordinate string (e.g., "R1C2" -> 1)
+    col = int(coord[coord.index('C') + 1:])  # Extract the column number from the coordinate string (e.g., "R1C2" -> 2)
     return [[row, col]]  # Return the coordinates as a list containing row and column indices
 
 def get_value_from_df(df, coord):
@@ -205,22 +205,17 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                 new_value = '$$$$'.join(map(str, Value_list))
                 data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
             else:
-                # Retrieve a single value and store it in the DataFrame
+                # Retrieve a single value and store it in the DataFrame 
                 new_value = get_value_from_df(temp_df, coord)
-                if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None:
+                if str(new_value) == 'nan' or new_value is None:
                    
-                    if new_value == None:
-                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
-                    elif str(new_value) == 'nan':
+                    if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None :                      
                         data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                     else:
-                        if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb':
-                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
-                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value             
+                        if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb': 
+                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01') # the read excel function read the date as a number, so we need to convert it to a date
+                        data_id_table=data_id_table[data_id_table['DATA_ID'] != id]            
                 else:
-                    if input_path.suffix == '.xls':
-                        if id == 'INFO_REPORT_DT':
-                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01')
                     
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
@@ -244,10 +239,11 @@ def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xl
     print(combined_df)  # Print the combined DataFrame for debugging
     return combined_df  # Return the combined DataFrame
 
-def main():
-    goal_dataframe = run_Import()
+
+if __name__ == "__main__":
+    goal_dataframe = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",['Basic input'])
     print(goal_dataframe.head(20))
-    print(get_value('CPD_NL_EXPPV_FP_EX_R13_S10_***',goal_dataframe ))
+    print(get_value('MKT_INT_DN_A_SH',goal_dataframe ))
     #create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
@@ -258,12 +254,7 @@ def main():
             index=False,
             header=True
          )
-    return goal_dataframe
-
-main()  # Execute the main function
-
-
-
+ 
 
 
 
