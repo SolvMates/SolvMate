@@ -187,38 +187,38 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         i += 1
         # Get the coordinate associated with the current data ID
         coord = data_id_table.loc[data_id_table['DATA_ID'] == id, 'RC_CODE'].values[0]
-        # Check if the worksheet matches the target worksheet
-        if target_worksheet == data_id_table.loc[data_id_table['DATA_ID'] == id, 'WORKSHEET'].values[0]:
-            if id.endswith('*'):  # Check if the data ID ends with '*'                
-                Value_list = []  # Initialize a list to store values
-                coord_list = convert_excel_range_to_list(coord)  # Convert the range to a list of coordinates
+    
+        if id.endswith('*'):  # Check if the data ID ends with '*'                
+            Value_list = []  # Initialize a list to store values
+            coord_list = convert_excel_range_to_list(coord)  # Convert the range to a list of coordinates
                 
                 # Retrieve values for each coordinate in the range
-                for coordinate in coord_list:
-                    new_value = get_value_from_df(temp_df, coordinate)
-                    if str(new_value) == 'nan' or new_value == 'Coordinates out of DataFrame bounds':
-                        print('')        
-                    else:
-                        Value_list.append(new_value)
+            for coordinate in coord_list:
+                new_value = get_value_from_df(temp_df, coordinate)
+                if str(new_value) == 'nan' or new_value == 'Coordinates out of DataFrame bounds':
+                    print('')        
+                else:
+                    Value_list.append(new_value)
                         
                 # Join the values with '$$$$' and store them in the DataFrame
-                new_value = '$$$$'.join(map(str, Value_list))
-                data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
-            else:
+            new_value = '$$$$'.join(map(str, Value_list))
+            data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
+        else:
                 # Retrieve a single value and store it in the DataFrame 
-                new_value = get_value_from_df(temp_df, coord)
-                if str(new_value) == 'nan' or new_value is None:
-                   
-                    if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None or str(data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]) != 'nan':                      
-                        data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
-                    else:
-                        if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb': 
-                            new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01') # the read excel function read the date as a number, so we need to convert it to a date
-                        data_id_table=data_id_table[data_id_table['DATA_ID'] != id]   
-                              
+            new_value = get_value_from_df(temp_df, coord)
+            if str(new_value) == 'nan' or new_value is None:
+                if str(data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]) != 'nan': 
+                    print('ojnjgndgjnjgf') 
+                if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None:                       
+                    data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                 else:
+                    if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb': 
+                        new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01') # the read excel function read the date as a number, so we need to convert it to a date
+                    data_id_table = data_id_table[data_id_table['DATA_ID'] != id]   
+                              
+            else:
                     
-                    data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
+                data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
     return data_id_table  # Return the processed DataFrame
 
 def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls", worksheets=['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 'LnH SLT UW', 'Health cat', 'NL NatCat', 'NatC OthR', 'NL man-made', 'OpRisk', 'MCR', 'Simplifications']):

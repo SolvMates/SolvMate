@@ -11,7 +11,7 @@ from pathlib import Path
 from get_Value import get_value 
 
 def main():
-    df = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",['MarketR'])
+    df = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls")
     print(get_value('MKT_INT_DN_A_SH',df))
     fill_templates_from_dataframe(df,)
 

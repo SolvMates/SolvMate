@@ -65,7 +65,7 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
             if data_id == 'MKT_INT_DN_A_SH':
                 print('GEwonnen')
             else:
-                print()""
+                print('')
             
             # Retrieve the value from the DataFrame
             if data_id in dataframe['DATA_ID'].values:
