@@ -209,12 +209,13 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                 new_value = get_value_from_df(temp_df, coord)
                 if str(new_value) == 'nan' or new_value is None:
                    
-                    if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None :                      
+                    if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None or str(data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]) != 'nan':                      
                         data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                     else:
                         if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb': 
                             new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01') # the read excel function read the date as a number, so we need to convert it to a date
-                        data_id_table=data_id_table[data_id_table['DATA_ID'] != id]            
+                        data_id_table=data_id_table[data_id_table['DATA_ID'] != id]   
+                              
                 else:
                     
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
@@ -243,7 +244,7 @@ def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xl
 if __name__ == "__main__":
     goal_dataframe = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",['Basic input'])
     print(goal_dataframe.head(20))
-    print(get_value('MKT_INT_DN_A_SH',goal_dataframe ))
+    print(get_value('SCR_ADDON_NLF_A',goal_dataframe ))
     #create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
