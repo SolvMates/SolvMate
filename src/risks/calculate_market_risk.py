@@ -14,6 +14,7 @@ supabase: Client = create_client(
     os.environ.get("SUPABASE_KEY")
 )
 
+#replace this with input_function
 def read_market_risk_input(input_path: str) -> pd.DataFrame:
     """
     Read the market risk input data from the xlsb file.
@@ -245,6 +246,7 @@ def read_correlation_matrix(matrix_id: str) -> pd.DataFrame:
                .execute())
     return pd.DataFrame(response.data)
 
+#Already part of input_function
 def read_data_id_values(worksheet: str = 'MarketR') -> pd.DataFrame:
     """
     Read data_id values from Supabase.
@@ -284,16 +286,17 @@ def main(run_id: str = None):
     # Read input data from Excel
     market_risk_input = read_market_risk_input(input_path)
 
-    # Read data from Supabase
-    tree_data = read_aggregation_tree('MARKET_INT')
-    correlation_data = read_correlation_matrix('corrmatrix_mkt_up')
-    data_id_values = read_data_id_values()
+# Moved to main:
+#    # Read data from Supabase
+#    tree_data = read_aggregation_tree('MARKET_INT')
+#    correlation_data = read_correlation_matrix('corrmatrix_mkt_up')
+#    data_id_values = read_data_id_values()
 
-    # Validate input data
-    if tree_data.empty:
-        raise ValueError("Aggregation tree data is empty.")
-    if correlation_data.empty:
-        raise ValueError("Correlation matrix data is empty.")
+#    # Validate input data
+#    if tree_data.empty:
+#        raise ValueError("Aggregation tree data is empty.")
+#    if correlation_data.empty:
+#        raise ValueError("Correlation matrix data is empty.")
 
     # Step 1: Create data_id_values DataFrame
     print("Inspecting data_id_values before processing:")
