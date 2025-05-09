@@ -70,10 +70,11 @@ supabase: Client = create_client(
 )
 
 def get_value(target_data_id: str, dataframe):
+    
     # Check if the input is a valid DataFrame
     if not isinstance(dataframe, pd.DataFrame):
         return 'Invalid input: The provided data is not a DataFrame'  # Return an error message if the input is not a DataFrame
-
+    
     # Check if the target data ID exists in the DataFrame
     if target_data_id in dataframe['DATA_ID'].values:
         # Check if the value is a string (indicating multiple values)
@@ -84,8 +85,18 @@ def get_value(target_data_id: str, dataframe):
         else:
             # Retrieve a single value
             data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0]
+            
     else:
+       
+        for id in dataframe['DATA_ID'].values:
+            
+            
+            if id == target_data_id:              
+                data_value = dataframe.loc[dataframe['DATA_ID'] == id, 'Value'].values[0]
+                
+                break
+            
         return 'Data id not found'  # Return an error message if the data ID is not found
-
+    # Check if the value is a string (indicating multiple values)
     return data_value  # Return the retrieved value
 

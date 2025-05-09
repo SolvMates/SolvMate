@@ -3,7 +3,7 @@ from pathlib import Path
 from supabase import create_client, Client
 import pandas as pd
 from openpyxl import load_workbook
-
+from input import run_Import
 from dotenv import load_dotenv
 from get_Value import get_value
 
@@ -32,58 +32,81 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
     """
     # Fetch the output mapping data from the Supabase database
     
-    response = supabase.table('output_mapping').select('*').execute()
-    if not response.data:
-        raise ValueError("No mapping data found in the 'outputmapping' table.")
+    mapping_data = pd.DataFrame()
+    offset = 0  # Offset for pagination
+    limit = 1000  # Number of rows to fetch per request
 
-    mapping_data = pd.DataFrame(response.data)
+    while True:
+        # Fetch data from the Supabase table 'data_id' with pagination
+        response = (supabase.table('output_mapping')
+                    .select('*')
+                    .range(offset, offset + limit - 1)  # Fetch rows within the specified range
+                    .execute())
+        
+        # Convert the response data to a DataFrame
+        temp_df = pd.DataFrame(response.data)
+        if temp_df.empty:
+            break  # Exit the loop if no more data is available
+        
+        # Append the fetched data to the main DataFrame and remove duplicates
+        mapping_data = pd.concat([mapping_data, temp_df])
+        offset += limit  # Increment the offset for the next request
 
-    # Ensure the required columns are present
-    required_columns = ['TEMPLATE_NAME', 'DATA_ID', 'CELL']
-    if not all(col in mapping_data.columns for col in required_columns):
-        raise ValueError(f"The 'outputmapping' table must contain the following columns: {required_columns}")
+    # Load the template file
+    template_path = Path(f"/workspaces/SolvMate/templates/Output_ERGO.xlsx")
+    workbook = load_workbook(template_path)
+    
 
-    # Iterate over all templates
-    for template_name in mapping_data['TEMPLATE_NAME'].unique():
-        # Load the corresponding template
-        template_path = Path(f"/workspaces/SolvMate/templates/{template_name}")
-        if not template_path.exists():
-            print(f"Template {template_name} not found. Skipping...")
+    # Iterate over all worksheets in the workbook
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        if sheet_name.startswith('S.25') == False:
+            print(f"Skipping sheet: {sheet_name}")  # Debugging-Ausgabe
             continue
-
-        workbook = load_workbook(template_path)
-        sheet = workbook.active
-
-        # Filter the mapping data for the current template
-        template_mapping = mapping_data[mapping_data['TEMPLATE_NAME'] == template_name]
-
+        # Filter the mapping data for the current worksheet
+        worksheet_mapping = mapping_data[mapping_data['QRT_NAME'] == sheet_name]
         # Iterate over all `data_id` entries in the mapping
-        for data_id in template_mapping['DATA_ID'].values:
+        for id in worksheet_mapping['ID'].values:
+            cell = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'CELL_REFERENCE'].values[0]
+            data_id = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'DATA_ID'].values[0]           
+            found = False
+            if type(data_id) == str:
+                data_id = data_id.strip()
+            for id2 in dataframe['DATA_ID'].values:                         
+                if id2 == data_id:              
+                    value = get_value(data_id, dataframe)
+                    print(f"Found value for data_id {data_id}: {value}")
+                    found = True
+                    break
+            if found == False:                
+                print('Warning: No value found for data_id {data_id}. Leaving cell {cell} empty.')
             
-            cell = template_mapping.loc[template_mapping['DATA_ID'] == data_id, 'CELL'].values[0]
-            print(data_id)
-            if data_id == 'MKT_INT_DN_A_SH':
-                print('GEwonnen')
-            else:
-                print('')
-            
-            # Retrieve the value from the DataFrame
-            if data_id in dataframe['DATA_ID'].values:
-                value = dataframe.loc[dataframe['DATA_ID'] == data_id, 'Value'].values[0]
-                
-            else:
-                value = None  # If no value is found
-                print('nsfuhfbh')
-
             # Write the value into the corresponding cell
+
             if value is not None:
-                sheet[cell] = value
-            else:
-                print(f"Warning: No value found for data_id {data_id}. Leaving cell {cell} empty.")
+                if type(value) == list:
+                    sheet[cell] = value[0]
+                else:
+                    try:
+                        # Convert the value to a float if possible
+                        value = float(value)
+                        sheet[cell] = value
+                    except ValueError:
+                        # If conversion fails, write the value as a string
+                        sheet[cell] = str(value)
 
-        # Save the filled template in the output directory
-        output_path = Path(output_dir) / f"Filled_{template_name}"
-        workbook.save(output_path)
-        print(f"Template {template_name} filled and saved to {output_path}.")
+    # Save the filled template in the output directory
+    output_path = Path(output_dir) / f"Filled_Output_ERGO.xlsx"
+    workbook.save(output_path)
+    print(f"Template filled and saved to {output_path}.")
 
 
+if __name__ == "__main__":
+    # Example DataFrame with `data_id` and `value` pairs
+    
+    dataframe = run_Import('/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls',['MarketR'])
+
+    # Fill the templates based on the DataFrame
+    fill_templates_from_dataframe(dataframe)
+    
+    

@@ -208,7 +208,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
             new_value = get_value_from_df(temp_df, coord)
             if str(new_value) == 'nan' or new_value is None:
                 if str(data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]) != 'nan': 
-                    print('ojnjgndgjnjgf') 
+                    print('')       
                 if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None:                       
                     data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                 else:
