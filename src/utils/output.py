@@ -60,7 +60,7 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
     # Iterate over all worksheets in the workbook
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
-        if sheet_name.startswith('S.25') == False:
+        if sheet_name.startswith('26') == True:
             print(f"Skipping sheet: {sheet_name}")  # Debugging-Ausgabe
             continue
         # Filter the mapping data for the current worksheet
@@ -70,6 +70,7 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
             cell = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'CELL_REFERENCE'].values[0]
             data_id = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'DATA_ID'].values[0]           
             found = False
+            value = None
             if type(data_id) == str:
                 data_id = data_id.strip()
             for id2 in dataframe['DATA_ID'].values:                         
@@ -104,7 +105,7 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
 if __name__ == "__main__":
     # Example DataFrame with `data_id` and `value` pairs
     
-    dataframe = run_Import('/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls',['MarketR'])
+    dataframe = run_Import('/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls')
 
     # Fill the templates based on the DataFrame
     fill_templates_from_dataframe(dataframe)
