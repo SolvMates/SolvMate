@@ -88,7 +88,6 @@ import numpy as np
 from datetime import datetime, timezone
 import openpyxl
 from pathlib import Path
-from get_Value import get_value 
 
 load_dotenv()
 supabase: Client = create_client(
@@ -169,8 +168,8 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         data_id_table = pd.concat([data_id_table, temp_df]).drop_duplicates(subset='DATA_ID', keep='first', ignore_index=True)
         offset += limit  # Increment the offset for the next request
 
-    # Add a new column 'Value' to store the extracted values
-    data_id_table.insert(1, 'Value', None)
+    # Add a new column 'VALUE' to store the extracted values
+    data_id_table.insert(1, 'VALUE', None)
     i = 0  # Counter for debugging purposes
     
     # Load the Excel worksheet into a DataFrame
@@ -182,8 +181,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
     
     
-    for id in data_id_table['DATA_ID']:
-        print(i)  # Print the counter for debugging
+    for id in data_id_table['DATA_ID']:        
         i += 1
         # Get the coordinate associated with the current data ID
         coord = data_id_table.loc[data_id_table['DATA_ID'] == id, 'RC_CODE'].values[0]
@@ -202,15 +200,15 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                         
                 # Join the values with '$$$$' and store them in the DataFrame
             new_value = '$$$$'.join(map(str, Value_list))
-            data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
+            data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
         else:
                 # Retrieve a single value and store it in the DataFrame 
             new_value = get_value_from_df(temp_df, coord)
             if str(new_value) == 'nan' or new_value is None:
                 if str(data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]) != 'nan': 
-                    print('ojnjgndgjnjgf') 
+                    print('') 
                 if data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0] != None:                       
-                    data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
+                    data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = data_id_table.loc[data_id_table['DATA_ID'] == id, 'DEFAULT_LIST_VALUE'].values[0]
                 else:
                     if id == 'INFO_REPORT_DT' and input_path.suffix == '.xlsb': 
                         new_value = pd.to_datetime(new_value, unit='D', origin='1900-04-01') # the read excel function read the date as a number, so we need to convert it to a date
@@ -218,7 +216,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                               
             else:
                     
-                data_id_table.loc[data_id_table['DATA_ID'] == id, 'Value'] = new_value
+                data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
     return data_id_table  # Return the processed DataFrame
 
 def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls", worksheets=['Basic input', 'MarketR', 'ConcR', 'CurrR', 'CDR', 'CDR - SCR hyp', 'net Prem CP', 'LnH SLT UW', 'Health cat', 'NL NatCat', 'NatC OthR', 'NL man-made', 'OpRisk', 'MCR', 'Simplifications']):
@@ -237,7 +235,6 @@ def run_Import(input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xl
 
     # Combine all DataFrames into a single DataFrame
     combined_df = pd.concat(dataframes, ignore_index=True)
-    print(combined_df)  # Print the combined DataFrame for debugging
     return combined_df  # Return the combined DataFrame
 
 
