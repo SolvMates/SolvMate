@@ -172,3 +172,17 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+input/
+dash/
+output/
+src/risks/
+src/utils/aggregate_tree.py
+src/utils/create_output.py
+src/utils/output.py
+src/utils/read_input.py
+src/utils/test.py
+src/utils/=2.0.1
+src/utils/__pycache__
+templates/
+examples/
