@@ -146,17 +146,22 @@ def handle_upload(filename, contents, n_clicks, stored_file):
             )
 
         # --- Only DATA_ID is different, continue here ---
+        # --- Only DATA_ID is different, continue here ---
+
+        # Update DATA_ID in database for each row
+        changed_rows = df_upload_sorted[df_upload_sorted["DATA_ID"] != df_db_sorted["DATA_ID"]]
+        updated_count = 0
+        for idx, row in changed_rows.iterrows():
+            data_id = row["DATA_ID"]
+            if pd.isna(data_id):
+                data_id = None
+            supabase.table("output_mapping").update({"DATA_ID": data_id}).eq("ID", row["ID"]).execute()
+           
+       
         upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         upload_history.append((filename, upload_time))
-        history_display = html.Ul([
-            html.Li(f"{name} - {date}") for name, date in upload_history
-        ])
-        return (
-            html.Span("Upload successful! Only DATA_ID was changed.", style={"color": "green"}),
-            history_display,
-            True,
-            None
-        )
+        history_display = html.Ul([html.Li(f"{name} - {date}") for name, date in upload_history])
+        return html.Span("Upload successful! Only DATA_ID was changed and the database has been updated.", style={"color": "green"}),history_display,True,None
 
     return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
