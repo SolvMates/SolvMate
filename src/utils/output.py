@@ -14,10 +14,13 @@ from datetime import datetime, timezone
 # Initialize the Supabase client
 load_dotenv()
 supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL1"),
-    os.environ.get("SUPABASE_KEY1")
+    os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
 )
-def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/workspaces/SolvMate/outputs"):
+
+
+def fill_templates_from_dataframe(
+    dataframe: pd.DataFrame, output_dir="/workspaces/SolvMate/outputs"
+):
     """
     Fills Excel templates based on the mapping defined in the Supabase database.
 
@@ -31,23 +34,25 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
     None
     """
     # Fetch the output mapping data from the Supabase database
-    
+
     mapping_data = pd.DataFrame()
     offset = 0  # Offset for pagination
     limit = 1000  # Number of rows to fetch per request
 
     while True:
         # Fetch data from the Supabase table 'data_id' with pagination
-        response = (supabase.table('output_mapping')
-                    .select('*')
-                    .range(offset, offset + limit - 1)  # Fetch rows within the specified range
-                    .execute())
-        
+        response = (
+            supabase.table("output_mapping")
+            .select("*")
+            .range(offset, offset + limit - 1)  # Fetch rows within the specified range
+            .execute()
+        )
+
         # Convert the response data to a DataFrame
         temp_df = pd.DataFrame(response.data)
         if temp_df.empty:
             break  # Exit the loop if no more data is available
-        
+
         # Append the fetched data to the main DataFrame and remove duplicates
         mapping_data = pd.concat([mapping_data, temp_df])
         offset += limit  # Increment the offset for the next request
@@ -55,33 +60,38 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
     # Load the template file
     template_path = Path(f"/workspaces/SolvMate/templates/Output_ERGO.xlsx")
     workbook = load_workbook(template_path)
-    
 
     # Iterate over all worksheets in the workbook
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
-        if sheet_name.startswith('26') == True:
+        if sheet_name.startswith("26") == True:
             print(f"Skipping sheet: {sheet_name}")  # Debugging-Ausgabe
             continue
         # Filter the mapping data for the current worksheet
-        worksheet_mapping = mapping_data[mapping_data['QRT_NAME'] == sheet_name]
+        worksheet_mapping = mapping_data[mapping_data["QRT_NAME"] == sheet_name]
         # Iterate over all `data_id` entries in the mapping
-        for id in worksheet_mapping['ID'].values:
-            cell = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'CELL_REFERENCE'].values[0]
-            data_id = worksheet_mapping.loc[worksheet_mapping['ID'] == id, 'DATA_ID'].values[0]           
+        for id in worksheet_mapping["ID"].values:
+            cell = worksheet_mapping.loc[
+                worksheet_mapping["ID"] == id, "CELL_REFERENCE"
+            ].values[0]
+            data_id = worksheet_mapping.loc[
+                worksheet_mapping["ID"] == id, "DATA_ID"
+            ].values[0]
             found = False
             value = None
             if type(data_id) == str:
                 data_id = data_id.strip()
-            for id2 in dataframe['DATA_ID'].values:                         
-                if id2 == data_id:              
+            for id2 in dataframe["DATA_ID"].values:
+                if id2 == data_id:
                     value = get_value(data_id, dataframe)
                     print(f"Found value for data_id {data_id}: {value}")
                     found = True
                     break
-            if found == False:                
-                print('Warning: No value found for data_id {data_id}. Leaving cell {cell} empty.')
-            
+            if found == False:
+                print(
+                    "Warning: No value found for data_id {data_id}. Leaving cell {cell} empty."
+                )
+
             # Write the value into the corresponding cell
 
             if value is not None:
@@ -104,10 +114,8 @@ def fill_templates_from_dataframe(dataframe: pd.DataFrame, output_dir = "/worksp
 
 if __name__ == "__main__":
     # Example DataFrame with `data_id` and `value` pairs
-    
-    dataframe = run_Import('/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls')
+
+    dataframe = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls")
 
     # Fill the templates based on the DataFrame
     fill_templates_from_dataframe(dataframe)
-    
-    
