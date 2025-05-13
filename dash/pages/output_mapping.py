@@ -14,14 +14,12 @@ import base64
 
 from dash.dcc import send_bytes
 
-
 import re
 
 load_dotenv()
 supabase: Client = create_client(
     os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
 )
-
 
 dash.register_page(
     __name__,
@@ -31,12 +29,15 @@ dash.register_page(
     category="Database configuration",
 )
 
-# Liste zur Speicherung der Upload-Historie (global)
-upload_history = []
-
 # Globale Variable für das zuletzt heruntergeladene DataFrame
 last_downloaded_df = None
 
+# Beispiel-Tabelle-Liste
+TABLE_OPTIONS = [
+    {"label": "Output Mapping", "value": "output_mapping"},
+    {"label": "Other Table", "value": "other_table"},
+    # weitere Tabellen nach Bedarf
+]
 
 def layout():
     """Return the layout for this view"""
@@ -49,6 +50,16 @@ def layout():
                 "Only the DATA_ID column may be changed. Please follow the instructions in each section.",
                 className="text-start mb-4",
             ),
+            html.Div([
+                html.Label("Select table to update/download:", style={"fontWeight": "bold"}),
+                dcc.Dropdown(
+                    id="table-select",
+                    options=TABLE_OPTIONS,
+                    value="output_mapping",  # Default
+                    clearable=False,
+                    style={"width": "300px"}
+                ),
+            ], className="mb-4"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -103,6 +114,13 @@ def layout():
             html.Div(
                 [
                     html.H4("Upload History", className="mt-3"),
+                    dbc.Button(
+                        "Reload Upload History",
+                        id="reload-history-button",
+                        color="secondary",
+                        className="mb-2 ms-2",
+                        n_clicks=0,
+                    ),
                     html.Div(
                         id="upload-history",
                         children=[],
@@ -122,6 +140,14 @@ def layout():
         className="py-4",
     )
 
+def render_upload_history():
+    response = supabase.table("upload_history").select("*").order("TIME", desc=True).execute()
+    df = pd.DataFrame(response.data)
+    if df.empty:
+        return html.Div("No uploads yet.")
+    return html.Ul([
+        html.Li(f"{row['TIME']} - {row['NAME']}") for _, row in df.iterrows()
+    ])
 
 @callback(
     Output("upload-output", "children"),
@@ -131,12 +157,17 @@ def layout():
     Input("upload-data", "filename"),
     Input("upload-data", "contents"),
     Input("upload-button", "n_clicks"),
+    Input("reload-history-button", "n_clicks"),  # <--- NEU
     State("upload-file-store", "data"),
+    State("table-select", "value"),
     prevent_initial_call=True,
 )
-def handle_upload(filename, contents, n_clicks, stored_file):
+def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stored_file, table_name):
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-    global upload_history
+
+    # Reload-Button gedrückt
+    if triggered_id == "reload-history-button":
+        return dash.no_update, render_upload_history(), dash.no_update, dash.no_update
 
     # When a file is uploaded
     if triggered_id == "upload-data":
@@ -147,21 +178,19 @@ def handle_upload(filename, contents, n_clicks, stored_file):
                         "Only files named 'output_mapping.xlsx' are allowed!",
                         style={"color": "red"},
                     ),
-                    html.Ul(
-                        [html.Li(f"{name} - {date}") for name, date in upload_history]
-                    ),
+                    render_upload_history(),
                     True,
                     None,
                 )
             return (
                 f"File '{filename}' uploaded successfully! Press 'Confirm Upload' to update the database.",
-                html.Ul([html.Li(f"{name} - {date}") for name, date in upload_history]),
+                render_upload_history(),
                 False,
                 {"filename": filename, "contents": contents},
             )
         return (
             "",
-            html.Ul([html.Li(f"{name} - {date}") for name, date in upload_history]),
+            render_upload_history(),
             True,
             None,
         )
@@ -175,7 +204,7 @@ def handle_upload(filename, contents, n_clicks, stored_file):
         df_upload = pd.read_excel(io.BytesIO(decoded))
 
         # Load current mapping from database
-        response = supabase.table("output_mapping").select("*").execute()
+        response = supabase.table(table_name).select("*").execute()
         df_db = pd.DataFrame(response.data)
 
         # Sort and set index for comparison (e.g. by ID)
@@ -194,15 +223,12 @@ def handle_upload(filename, contents, n_clicks, stored_file):
                     "Error: Only values in the column DATA_ID may be changed!",
                     style={"color": "red"},
                 ),
-                html.Ul([html.Li(f"{name} - {date}") for name, date in upload_history]),
+                render_upload_history(),
                 True,
                 None,
             )
 
-        # --- Only DATA_ID is different, continue here ---
-        # --- Only DATA_ID is different, continue here ---
-
-        # Update DATA_ID in database for each row
+        # Only DATA_ID is different, continue here
         changed_rows = df_upload_sorted[
             df_upload_sorted["DATA_ID"] != df_db_sorted["DATA_ID"]
         ]
@@ -211,38 +237,40 @@ def handle_upload(filename, contents, n_clicks, stored_file):
             data_id = row["DATA_ID"]
             if pd.isna(data_id):
                 data_id = None
-            supabase.table("output_mapping").update({"DATA_ID": data_id}).eq(
-                "ID", row["ID"]
-            ).execute()
+            supabase.table(table_name).update({"DATA_ID": data_id}).eq("ID", row["ID"]).execute()
+            updated_count += 1
+            print(updated_count)
 
         upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        upload_history.append((filename, upload_time))
-        history_display = html.Ul(
-            [html.Li(f"{name} - {date}") for name, date in upload_history]
-        )
+        supabase.table("upload_history").insert({"TIME": upload_time, "NAME": filename}).execute()
+
         return (
-            html.Span(
-                "Upload successful! Only DATA_ID was changed and the database has been updated.",
-                style={"color": "green"},
-            ),
-            history_display,
+            html.Div([
+                html.Span(
+                    "Upload successful! Only DATA_ID was changed and the database has been updated.",
+                    style={"color": "green"},
+                ),
+                html.Br(),
+                html.Span(f"Total updated entries: {updated_count}", style={"color": "blue"})
+            ]),
+            render_upload_history(),
             True,
             None,
         )
 
     return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-
 @callback(
     Output("download-button", "n_clicks"),
     Output("download-data", "data"),
     Input("download-button", "n_clicks"),
+    State("table-select", "value"),
     prevent_initial_call=True,
 )
-def handle_download(n_clicks):
+def handle_download(n_clicks, table_name):
     global last_downloaded_df
     if n_clicks:
-        response = supabase.table("output_mapping").select("*").execute()
+        response = supabase.table(table_name).select("*").execute()
         df = pd.DataFrame(response.data)
         last_downloaded_df = df.copy()
         output = io.BytesIO()
@@ -253,9 +281,9 @@ def handle_download(n_clicks):
         def write_bytesio(f):
             f.write(output.getvalue())
 
-        return 0, send_bytes(write_bytesio, "output_mapping.xlsx")
+        return 0, send_bytes(write_bytesio, f"{table_name}.xlsx")
     return dash.no_update, dash.no_update
 
 
-# Make layout available at module level
+
 __all__ = ["layout"]
