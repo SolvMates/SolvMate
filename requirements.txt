@@ -7,3 +7,4 @@ python-dotenv
 numpy
 pyspark
 supabase
+xlrd

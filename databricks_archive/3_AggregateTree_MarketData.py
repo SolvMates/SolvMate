@@ -1,12 +1,33 @@
+# Databricks notebook source
+# MAGIC %md
+# MAGIC The following table aggregation_tree_market contains input for a market SCR calculation (without currency and concentration risk) in Solvency II in form of an aggregation tree structure, where column _NODE_ID
+# MAGIC contains all nodes of the tree, column _PARENT_NODE_ID contains their respective parent node and AGGREGATION_METHOD_CD contains either the value "external", which means that the input of the value is provided externally via a variable (column DATA_ID) in table "data_id_updated", or one of the following aggregation methods:
+# MAGIC -  "sum": The value for this node is calculated as a sum of all child nodes
+# MAGIC -  "max": The value for this node is calculated as the maximum of all child nodes
+# MAGIC -  "correlated": The value for this node is calculated with the help of a correlation matrix. The name of the matrix to be used in the aggregation is given in column _MATRIX_ID. The values of all correlation matrices are stored in table default.correlation_matrix, which consists of the following columns: 
+# MAGIC -- CORRELATION_MATRIX_ID: ID of correlation matrix, which is referenced in aggregation_tree_market._MATRIX_ID
+# MAGIC -- VAR1_NM: ID of variable 1
+# MAGIC -- VAR2_NM: ID of variable 2
+# MAGIC -- CORRELATION_VALUE_NO: Correlation value
+# MAGIC The resulting aggregation logic using "correlated is: sqrt(sum(Corr_i,j*Node_i*Node_j)) over all child nodes of the respective node.
+# MAGIC - "dnav": All child nodes of a node with aggregation method "dnav" are either assets or liabilities. This information is specified in column "BS_TYPE" with "asset" for assets and "liab" for liabilities. Each asset or liability has a scenario that is specified in column "SCENARIO": "BC" is the base case and "SH" is the shocked scenario. With this information, the aggregation logic for "dnav" is: (Sum of all base case assets - sum of all base case liabilities) - ((Sum of all shocked assets - sum of all shocked liabilities)).
+# MAGIC - "max_scen": Does the same as "max" for now.
+# MAGIC
+# MAGIC Can you please write a method, that takes the input "aggregation_tree_id" and does the following steps: 
+# MAGIC 1. Read in the tables "aggregation_tree" and "data_id_updated" as data frames.
+# MAGIC 2. Add the column "VALUE" to the data frame "aggregation_tree".
+# MAGIC 3. For the specified "aggregation_tree_id", read in all values for all nodes with "_AGGREGATION_METHOD_CD" = "external" from data frame "data_id_updated", where _NODE_ID = DATA_ID in "data_id_updated".
+# MAGIC 4. Aggregate all other values using their aggregation method, which is definded in column "AGGREGATION_METHOD_CD".
+# MAGIC 5. Save the results in a new table in schema "default" with name "aggregation_tree_market_enriched".
+# MAGIC
+# MAGIC
+
+# COMMAND ----------
 
 import pandas as pd
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, sqrt, sum as spark_sum, max as spark_max, when
 
-# Initialize Spark session
-spark = SparkSession.builder.appName("MarketSCRAggregation").getOrCreate()
-
-def aggregate_tree(aggregation_tree_id):
+def aggregate_market_scr(aggregation_tree_id):
     """
     Aggregates market SCR values based on the specified aggregation tree ID.
 
@@ -93,7 +114,19 @@ def aggregate_tree(aggregation_tree_id):
     aggregation_tree.select("_NODE_ID", "VALUE").write.mode("overwrite").saveAsTable("default.aggregation_tree_market_enriched")
 
 # Example usage
-#aggregate_tree('MARKET_INT')
+aggregate_market_scr('MARKET_INT')
 
+# COMMAND ----------
 
-
+# MAGIC %md
+# MAGIC ### Explanation
+# MAGIC
+# MAGIC The `aggregate_market_scr` function aggregates market SCR values based on a specified aggregation tree ID. Here are the steps it follows:
+# MAGIC
+# MAGIC 1. **Read Tables**: It reads the `aggregation_tree_market` and `data_id_updated` tables using Spark SQL.
+# MAGIC 2. **Initialize VALUE Column**: Adds a "VALUE" column to the `aggregation_tree` DataFrame and initializes it to 0.
+# MAGIC 3. **Update External Nodes**: Reads values for nodes with `_AGGREGATION_METHOD_CD` set to "external" and updates the "VALUE" column accordingly.
+# MAGIC 4. **Aggregate Values**: Aggregates values for other nodes based on their aggregation method. Supported methods include 'sum', 'max', 'correlated', 'dnav', and 'max_scen'.
+# MAGIC 5. **Save Results**: Saves the results in a new table named `aggregation_tree_market_enriched` in the "default" schema.
+# MAGIC
+# MAGIC The function is designed to handle different aggregation methods and recursively apply them to all nodes in the aggregation tree.
