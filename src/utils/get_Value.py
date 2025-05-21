@@ -69,6 +69,26 @@ supabase: Client = create_client(
     os.environ.get("SUPABASE_KEY")
 )
 
+def get_valueExt(target_data_id: str, dataframe, datatyp=None):
+    """
+    Uses get_value and always returns a single value if possible.
+    If datatyp is 'float', converts the value(s) to float.
+    """
+    data_value = get_value(target_data_id, dataframe)
+    # Convert to float if requested
+    if datatyp == "float":
+        if isinstance(data_value, list):
+            data_value = [float(x) if x not in [None, ''] else float('nan') for x in data_value]
+            return data_value[0] if len(data_value) == 1 else data_value
+        try:
+            return float(data_value)
+        except Exception:
+            return float('nan')
+    # Default: return single value if list of length 1, else as is
+    if isinstance(data_value, list):
+        return data_value[0] if len(data_value) == 1 else data_value
+    return data_value
+
 def get_value(target_data_id: str, dataframe):
     # Check if the input is a valid DataFrame
     if not isinstance(dataframe, pd.DataFrame):
@@ -77,13 +97,13 @@ def get_value(target_data_id: str, dataframe):
     # Check if the target data ID exists in the DataFrame
     if target_data_id in dataframe['DATA_ID'].values:
         # Check if the value is a string (indicating multiple values)
-        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0], str):
+        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0], str):
             # Split the string into a list of values
-            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0].split('$$$$')
+            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0].split('$$$$')
             return data_list  # Return the list of values
         else:
             # Retrieve a single value
-            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0]
+            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0]
     else:
         return 'Data id not found'  # Return an error message if the data ID is not found
 
