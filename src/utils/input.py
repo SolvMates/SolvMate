@@ -91,6 +91,7 @@ import openpyxl
 from pathlib import Path
 from get_Value import get_value
 
+
 load_dotenv()
 supabase: Client = create_client(
     os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
@@ -209,8 +210,10 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         )
         offset += limit  # Increment the offset for the next request
 
-    # Add a new column 'Value' to store the extracted values
-    data_id_table.insert(1, "Value", None)
+
+    # Add a new column 'VALUE' to store the extracted values
+    data_id_table.insert(1, 'VALUE', None)
+
     i = 0  # Counter for debugging purposes
 
     # Load the Excel worksheet into a DataFrame
@@ -223,12 +226,11 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
             input_path, target_worksheet, header=0, engine="xlrd"
         )  # Use 'xlrd' for .xls files
     else:
-        raise ValueError(
-            f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported."
-        )
 
-    for id in data_id_table["DATA_ID"]:
-        print(i)  # Print the counter for debugging
+        raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
+    
+    
+    for id in data_id_table['DATA_ID']:        
         i += 1
         # Get the coordinate associated with the current data ID
         coord = data_id_table.loc[data_id_table["DATA_ID"] == id, "RC_CODE"].values[0]
@@ -251,11 +253,13 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     Value_list.append(new_value)
 
                 # Join the values with '$$$$' and store them in the DataFrame
-            new_value = "$$$$".join(map(str, Value_list))
-            data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = new_value
+
+            new_value = '$$$$'.join(map(str, Value_list))
+            data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
         else:
             # Retrieve a single value and store it in the DataFrame
             new_value = get_value_from_df(temp_df, coord)
+
             if str(new_value) == "nan" or new_value is None:
                 if (
                     str(
@@ -277,16 +281,15 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                             data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
                         ].values[0]
                     )
+
                 else:
                     if id == "INFO_REPORT_DT" and input_path.suffix == ".xlsb":
                         new_value = pd.to_datetime(
                             new_value, unit="D", origin="1900-04-01"
                         )  # the read excel function read the date as a number, so we need to convert it to a date
                     data_id_table = data_id_table[data_id_table["DATA_ID"] != id]
-
             else:
-
-                data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = new_value
+                data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
     return data_id_table  # Return the processed DataFrame
 
 
@@ -329,7 +332,6 @@ def run_Import(
 
     # Combine all DataFrames into a single DataFrame
     combined_df = pd.concat(dataframes, ignore_index=True)
-    print(combined_df)  # Print the combined DataFrame for debugging
     return combined_df  # Return the combined DataFrame
 
 
