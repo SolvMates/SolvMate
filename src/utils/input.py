@@ -309,7 +309,7 @@ def run_Import(
         "MCR",
         "Simplifications",
     ],
-):
+) -> pd.DataFrame:
     input_p = Path(input_path)  # Convert the input path to a Path object
 
     # Check if the input path exists and is a file

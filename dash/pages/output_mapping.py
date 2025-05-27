@@ -16,11 +16,13 @@ from dash.dcc import send_bytes
 
 import re
 
+# Load environment variables for Supabase credentials
 load_dotenv()
 supabase: Client = create_client(
     os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
 )
 
+# Register this page for Dash multi-page support
 dash.register_page(
     __name__,
     path="/Database/output_mapping_test",
@@ -29,18 +31,21 @@ dash.register_page(
     category="Database configuration",
 )
 
-# Globale Variable für das zuletzt heruntergeladene DataFrame
-last_downloaded_df = None
 
-# Beispiel-Tabelle-Liste
+# Example table options for dropdown selection
 TABLE_OPTIONS = [
     {"label": "Output Mapping", "value": "output_mapping"},
     {"label": "Other Table", "value": "other_table"},
-    # weitere Tabellen nach Bedarf
+    # Add more tables as needed
 ]
 
+
 def layout():
-    """Return the layout for this view"""
+    """
+    Returns the layout for the Output Mapping page.
+    This includes sections for downloading and uploading mapping files,
+    as well as a history of uploads.
+    """
     return dbc.Container(
         [
             html.H1("Output Mapping", className="my-4 text-start"),
@@ -50,16 +55,21 @@ def layout():
                 "Only the DATA_ID column may be changed. Please follow the instructions in each section.",
                 className="text-start mb-4",
             ),
-            html.Div([
-                html.Label("Select table to update/download:", style={"fontWeight": "bold"}),
-                dcc.Dropdown(
-                    id="table-select",
-                    options=TABLE_OPTIONS,
-                    value="output_mapping",  # Default
-                    clearable=False,
-                    style={"width": "300px"}
-                ),
-            ], className="mb-4"),
+            html.Div(
+                [
+                    html.Label(
+                        "Select table to update/download:", style={"fontWeight": "bold"}
+                    ),
+                    dcc.Dropdown(
+                        id="table-select",
+                        options=TABLE_OPTIONS,
+                        value="output_mapping",  # Default
+                        clearable=False,
+                        style={"width": "300px"},
+                    ),
+                ],
+                className="mb-4",
+            ),
             dbc.Row(
                 [
                     dbc.Col(
@@ -104,6 +114,13 @@ def layout():
                                 n_clicks=0,
                                 disabled=True,
                             ),
+                            dbc.Input(
+                                id="upload-message",
+                                type="text",
+                                placeholder="Optional: Add a message for this upload (will appear in upload history)",
+                                className="mt-2",
+                                maxLength=200,
+                            ),
                         ],
                         width=6,
                         className="border p-3",
@@ -140,38 +157,79 @@ def layout():
         className="py-4",
     )
 
+
 def render_upload_history():
-    response = supabase.table("upload_history").select("*").order("TIME", desc=True).execute()
+    """
+    Fetches and renders the upload history from the database.
+    """
+    response = (
+        supabase.table("upload_history").select("*").order("TIME", desc=True).execute()
+    )
     df = pd.DataFrame(response.data)
     if df.empty:
         return html.Div("No uploads yet.")
-    return html.Ul([
-        html.Li(f"{row['TIME']} - {row['NAME']}") for _, row in df.iterrows()
-    ])
+    return html.Ul(
+        [
+            html.Li(
+                f"{row['TIME']} - {row['NAME']}"
+                + (
+                    f" | Message: {row['MESSAGE']}"
+                    if "MESSAGE" in row and row["MESSAGE"]
+                    else ""
+                )
+            )
+            for _, row in df.iterrows()
+        ]
+    )
+
 
 @callback(
     Output("upload-output", "children"),
     Output("upload-history", "children"),
     Output("upload-button", "disabled"),
     Output("upload-file-store", "data"),
+    Output("upload-message", "value"),
+    Output("upload-data", "contents"),
     Input("upload-data", "filename"),
     Input("upload-data", "contents"),
     Input("upload-button", "n_clicks"),
-    Input("reload-history-button", "n_clicks"),  # <--- NEU
+    Input("reload-history-button", "n_clicks"),
     State("upload-file-store", "data"),
     State("table-select", "value"),
+    State("upload-message", "value"),
     prevent_initial_call=True,
 )
-def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stored_file, table_name):
+def handle_upload_and_reload(
+    filename,
+    contents,
+    n_clicks,
+    reload_n_clicks,
+    stored_file,
+    table_name,
+    upload_message,
+):
+    """
+    Handles file upload, validation, and database update logic.
+    Also handles reloading the upload history.
+    Returns six outputs as required by the callback schema.
+    """
     triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
 
-    # Reload-Button gedrückt
+    # Handle reload history button
     if triggered_id == "reload-history-button":
-        return dash.no_update, render_upload_history(), dash.no_update, dash.no_update
+        return (
+            dash.no_update,
+            render_upload_history(),
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+        )
 
-    # When a file is uploaded
+    # Handle file upload
     if triggered_id == "upload-data":
         if filename and contents:
+            # Only allow files with the exact name 'output_mapping.xlsx'
             if filename != "output_mapping.xlsx":
                 return (
                     html.Span(
@@ -181,21 +239,28 @@ def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stor
                     render_upload_history(),
                     True,
                     None,
+                    dash.no_update,
+                    None, 
                 )
             return (
                 f"File '{filename}' uploaded successfully! Press 'Confirm Upload' to update the database.",
                 render_upload_history(),
                 False,
                 {"filename": filename, "contents": contents},
+                dash.no_update,
+                None,  
             )
+        # If no file is uploaded, reset everything
         return (
             "",
             render_upload_history(),
             True,
             None,
+            dash.no_update,
+            None,  
         )
 
-    # When confirm button is pressed
+    # Handle confirm upload button
     if triggered_id == "upload-button" and stored_file:
         filename = stored_file["filename"]
         contents = stored_file["contents"]
@@ -211,12 +276,13 @@ def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stor
         df_upload_sorted = df_upload.sort_values(by="ID").reset_index(drop=True)
         df_db_sorted = df_db.sort_values(by="ID").reset_index(drop=True)
 
-        # Check if DataFrames are equal except for DATA_ID
+        # Compare all columns except DATA_ID
         cols_to_compare = [
             col
             for col in df_upload_sorted.columns
             if col != "DATA_ID" and col in df_db_sorted.columns
         ]
+        # If any column except DATA_ID is changed, reject the upload
         if not df_upload_sorted[cols_to_compare].equals(df_db_sorted[cols_to_compare]):
             return (
                 html.Span(
@@ -226,39 +292,72 @@ def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stor
                 render_upload_history(),
                 True,
                 None,
+                dash.no_update,
+                None,  
             )
 
-        # Only DATA_ID is different, continue here
+        # Only DATA_ID is different, continue with update
+        df_upload_sorted["DATA_ID"] = df_upload_sorted["DATA_ID"].where(
+            pd.notna(df_upload_sorted["DATA_ID"]), "NO DATA_ID"
+        )
+        df_db_sorted["DATA_ID"] = df_db_sorted["DATA_ID"].fillna("NO DATA_ID")
+
+        # Find rows where DATA_ID is different and not both None
         changed_rows = df_upload_sorted[
-            df_upload_sorted["DATA_ID"] != df_db_sorted["DATA_ID"]
+            ~(
+                (df_upload_sorted["DATA_ID"].isna() & df_db_sorted["DATA_ID"].isna())
+                | (df_upload_sorted["DATA_ID"] == df_db_sorted["DATA_ID"])
+            )
         ]
+
         updated_count = 0
         for idx, row in changed_rows.iterrows():
             data_id = row["DATA_ID"]
             if pd.isna(data_id):
                 data_id = None
-            supabase.table(table_name).update({"DATA_ID": data_id}).eq("ID", row["ID"]).execute()
+            # Update DATA_ID in the database for each changed row
+            supabase.table(table_name).update({"DATA_ID": data_id}).eq(
+                "ID", row["ID"]
+            ).execute()
             updated_count += 1
-            print(updated_count)
 
+        # Log the upload in the upload_history table
         upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        supabase.table("upload_history").insert({"TIME": upload_time, "NAME": filename}).execute()
+        supabase.table("upload_history").insert(
+            {"TIME": upload_time, "NAME": filename, "MESSAGE": upload_message or ""}
+        ).execute()
 
         return (
-            html.Div([
-                html.Span(
-                    "Upload successful! Only DATA_ID was changed and the database has been updated.",
-                    style={"color": "green"},
-                ),
-                html.Br(),
-                html.Span(f"Total updated entries: {updated_count}", style={"color": "blue"})
-            ]),
+            html.Div(
+                [
+                    html.Span(
+                        "Upload successful! Only DATA_ID was changed and the database has been updated.",
+                        style={"color": "green"},
+                    ),
+                    html.Br(),
+                    html.Span(
+                        f"Total updated entries: {updated_count}",
+                        style={"color": "blue"},
+                    ),
+                ]
+            ),
             render_upload_history(),
             True,
             None,
+            "",  # Clear the input field
+            None,  # Reset the upload field
         )
 
-    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    # Default: no update for all outputs
+    return (
+        dash.no_update,
+        dash.no_update,
+        dash.no_update,
+        dash.no_update,
+        dash.no_update,
+        dash.no_update,
+    )
+
 
 @callback(
     Output("download-button", "n_clicks"),
@@ -268,11 +367,14 @@ def handle_upload_and_reload(filename, contents, n_clicks, reload_n_clicks, stor
     prevent_initial_call=True,
 )
 def handle_download(n_clicks, table_name):
-    global last_downloaded_df
+    """
+    Handles the download of the current mapping as an Excel file.
+    """
+
     if n_clicks:
         response = supabase.table(table_name).select("*").execute()
         df = pd.DataFrame(response.data)
-        last_downloaded_df = df.copy()
+
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False)
@@ -283,7 +385,6 @@ def handle_download(n_clicks, table_name):
 
         return 0, send_bytes(write_bytesio, f"{table_name}.xlsx")
     return dash.no_update, dash.no_update
-
 
 
 __all__ = ["layout"]

@@ -38,7 +38,9 @@ def fill_templates_from_dataframe(
         if "NODE_ID" in dataframe.columns:
             dataframe = dataframe.rename(columns={"NODE_ID": "DATA_ID"})
         else:
-            raise ValueError("The input DataFrame must contain a column named 'DATA_ID' or 'NODE_ID'.")
+            raise ValueError(
+                "The input DataFrame must contain a column named 'DATA_ID' or 'NODE_ID'."
+            )
     # Fetch the output mapping data from the Supabase database
 
     mapping_data = pd.DataFrame()
@@ -116,6 +118,10 @@ def fill_templates_from_dataframe(
     output_path = Path(output_dir) / f"Filled_Output_ERGO.xlsx"
     workbook.save(output_path)
     print(f"Template filled and saved to {output_path}.")
+
+
+def run_output(dataframe: pd.DataFrame):
+    fill_templates_from_dataframe(dataframe)
 
 
 if __name__ == "__main__":
