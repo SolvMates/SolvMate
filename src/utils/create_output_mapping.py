@@ -38,7 +38,7 @@ def check_cell_value_format(cell_value: str) -> bool:
     return False
 
 
-def read_excel_cells(file_path: str):
+def read_excel_cells(file_path: str) -> pd.DataFrame:
     # Erstellen eines leeren DataFrames für die Ergebnisse
     results = pd.DataFrame(
         columns=["QRT_ID", "QRT_NAME", "RC_CODE", "CELL_REFERENCE", "DATA_ID", "ID"]
@@ -109,6 +109,20 @@ def upsert_data_to_supabase(
             # Datensatz existiert nicht, also fügen wir ihn hinzu
             supabase.table(table_name).insert(row.to_dict()).execute()
             print(f"Inserted new record with {unique_column}: {unique_value}")
+
+
+def create_output_mapping():
+    goal_dataframe = read_excel_cells(
+        file_path="/workspaces/SolvMate/templates/Output_ERGO.xlsx",
+    )
+    # create excel file
+    upsert_data_to_supabase(goal_dataframe, "output_mapping", "ID")
+    output_path = Path("/workspaces/SolvMate/outputs/Output_Mapping.xlsx")
+    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+        # Write the goal_dataframe to the specified sheet
+        goal_dataframe.to_excel(
+            writer, sheet_name="Goal DataFrame", index=False, header=True
+        )
 
 
 if __name__ == "__main__":

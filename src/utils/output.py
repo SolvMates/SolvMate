@@ -33,6 +33,12 @@ def fill_templates_from_dataframe(
     --------
     None
     """
+    # Ensure the input DataFrame has a column named 'DATA_ID'
+    if "DATA_ID" not in dataframe.columns:
+        if "NODE_ID" in dataframe.columns:
+            dataframe = dataframe.rename(columns={"NODE_ID": "DATA_ID"})
+        else:
+            raise ValueError("The input DataFrame must contain a column named 'DATA_ID' or 'NODE_ID'.")
     # Fetch the output mapping data from the Supabase database
 
     mapping_data = pd.DataFrame()
@@ -65,7 +71,7 @@ def fill_templates_from_dataframe(
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
         if sheet_name.startswith("26") == True:
-            print(f"Skipping sheet: {sheet_name}")  # Debugging-Ausgabe
+            print(f"Skipping sheet: {sheet_name}")  # Skip sheets starting with "26"
             continue
         # Filter the mapping data for the current worksheet
         worksheet_mapping = mapping_data[mapping_data["QRT_NAME"] == sheet_name]
@@ -81,8 +87,8 @@ def fill_templates_from_dataframe(
             value = None
             if type(data_id) == str:
                 data_id = data_id.strip()
-            for id2 in dataframe["DATA_ID"].values:
-                if id2 == data_id:
+            for data_id_from_dataframe in dataframe["DATA_ID"].values:
+                if data_id_from_dataframe == data_id:
                     value = get_value(data_id, dataframe)
                     print(f"Found value for data_id {data_id}: {value}")
                     found = True
