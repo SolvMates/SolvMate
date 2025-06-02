@@ -88,4 +88,3 @@ def get_value(target_data_id: str, dataframe):
         return 'Data id not found'  # Return an error message if the data ID is not found
 
     return data_value  # Return the retrieved value
-
