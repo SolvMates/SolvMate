@@ -16,6 +16,7 @@ def create_group_cards():
             "Type 2",
             "Risk Mitigation Calculation",
         ],
+        "Database configuration": ["Output mapping"],
     }
 
     cards = []
