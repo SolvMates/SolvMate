@@ -1,4 +1,5 @@
 from utils import aggregation_tree
+import numpy as np
 
 #MARKET_INT
 def calculate_interest_rate_risk(data_id_enriched):
@@ -62,11 +63,26 @@ def calculate_spread_risk(data_id_enriched):
     
     # Aggregate the tree with the enriched data
     aggregation_tree_market_spr_enriched = aggregation_tree.aggregate_tree(aggregation_tree_market_spr, data_id_enriched, "MARKET_SPR")
-    
+
+        # Update specific scr values by finding parent nodes
+    scr_to_update = ['MKT_SPR_BD_QI_CORP_SCR_N', 'MKT_SPR_BD_QI_CORP_SCR_G', 'MKT_SPR_BD_QI_NONCORP_SCR_N', 'MKT_SPR_BD_QI_NONCORP_SCR_G',
+                    'MKT_SPR_BD_OT_SCR_N', 'MKT_SPR_BD_OT_SCR_G', 'MKT_SPR_SE_S_STS_SCR_N', 'MKT_SPR_SE_S_STS_SCR_G',
+                    'MKT_SPR_SE_NS_STS_SCR_N', 'MKT_SPR_SE_NS_STS_SCR_G', 'MKT_SPR_SE_R_SCR_N', 'MKT_SPR_SE_R_SCR_G',
+                    'MKT_SPR_SE_OTH_SCR_N', 'MKT_SPR_SE_OTH_SCR_G', 'MKT_SPR_SE_TT1_SCR_N','MKT_SPR_SE_TT1_SCR_G',
+                    'MKT_SPR_SE_G_STS_SCR_N', 'MKT_SPR_SE_G_STS_SCR_G']  # list of parent nodes
+
+    for node in scr_to_update:
+    # Find rows with this parent node and BS_TYPE == 'LIAB'
+        relevant_liab = (
+        (aggregation_tree_market_spr_enriched['PARENT_NODE_ID'] == node) &
+        (aggregation_tree_market_spr_enriched['BS_TYPE'] == 'LIAB')
+        )
+  
+        if (aggregation_tree_market_spr_enriched.loc[relevant_liab, 'VALUE'] == '').all():
+            relevant_node = aggregation_tree_market_spr_enriched['NODE_ID'] == node
+            aggregation_tree_market_spr_enriched.loc[relevant_node, 'VALUE'] = '(empty str or n/a)'
+
     return aggregation_tree_market_spr_enriched
-    #TODO: #6 Update spread results based on input
-
-
 
 #MARKET - Total Market risk
 def calculate_total_market_risk(data_id_enriched):
