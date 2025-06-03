@@ -210,7 +210,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         )
         offset += limit  # Increment the offset for the next request
 
-    # Add a new column 'Value' to store the extracted values
+    # Add a new column 'VALUE' to store the extracted values
     data_id_table.insert(1, 'VALUE', None)
     i = 0  # Counter for debugging purposes
 
@@ -252,7 +252,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
 
                 # Join the values with '$$$$' and store them in the DataFrame
             new_value = "$$$$".join(map(str, Value_list))
-            data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = new_value
+            data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = new_value
         else:
             # Retrieve a single value and store it in the DataFrame
             new_value = get_value_from_df(temp_df, coord)
@@ -279,7 +279,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     data_id_table = data_id_table[data_id_table["DATA_ID"] != id]
             else:
 
-                data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = new_value
+                data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = new_value
     return data_id_table  # Return the processed DataFrame
 
 
