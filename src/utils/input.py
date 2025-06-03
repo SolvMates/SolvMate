@@ -210,10 +210,8 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
         )
         offset += limit  # Increment the offset for the next request
 
-
     # Add a new column 'VALUE' to store the extracted values
     data_id_table.insert(1, 'VALUE', None)
-
     i = 0  # Counter for debugging purposes
 
     # Load the Excel worksheet into a DataFrame
@@ -248,38 +246,29 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     str(new_value) == "nan"
                     or new_value == "Coordinates out of DataFrame bounds"
                 ):
-                    print("")
+                    new_value = 0
                 else:
                     Value_list.append(new_value)
 
                 # Join the values with '$$$$' and store them in the DataFrame
-
-            new_value = '$$$$'.join(map(str, Value_list))
-            data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
+            new_value = "$$$$".join(map(str, Value_list))
+            data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = new_value
         else:
             # Retrieve a single value and store it in the DataFrame
             new_value = get_value_from_df(temp_df, coord)
 
             if str(new_value) == "nan" or new_value is None:
                 if (
-                    str(
-                        data_id_table.loc[
-                            data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
-                        ].values[0]
-                    )
-                    != "nan"
-                ):
-                    print("")
-                if (
                     data_id_table.loc[
                         data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
                     ].values[0]
                     != None
                 ):
-                    data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = (
+                    data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = (
                         data_id_table.loc[
                             data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
                         ].values[0]
+                        
                     )
 
                 else:
@@ -289,7 +278,8 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                         )  # the read excel function read the date as a number, so we need to convert it to a date
                     data_id_table = data_id_table[data_id_table["DATA_ID"] != id]
             else:
-                data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
+
+                data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = new_value
     return data_id_table  # Return the processed DataFrame
 
 
@@ -311,7 +301,7 @@ def run_Import(
         "OpRisk",
         "MCR",
         "Simplifications",
-    ],
+    ]
 ) -> pd.DataFrame:
     input_p = Path(input_path)  # Convert the input path to a Path object
 
