@@ -120,8 +120,8 @@ def fill_templates_from_dataframe(
     print(f"Template filled and saved to {output_path}.")
 
 
-def run_output(dataframe: pd.DataFrame):
-    fill_templates_from_dataframe(dataframe)
+def run_output(dataframe: pd.DataFrame, output_dir :str = "/workspaces/SolvMate/outputs"):
+    fill_templates_from_dataframe(dataframe, output_dir)
 
 
 if __name__ == "__main__":

@@ -17,9 +17,9 @@ def set_value(target_data_id: str, dataframe, value=None):
     if target_data_id in dataframe["DATA_ID"].values:
         # If a value is provided, set it in the DataFrame or else set it to None
         if value is not None:
-            dataframe.loc[dataframe["DATA_ID"] == target_data_id, "Value"] = value
+            dataframe.loc[dataframe["DATA_ID"] == target_data_id, "VALUE"] = value
         else:
-            dataframe.loc[dataframe["DATA_ID"] == target_data_id, "Value"] = None
+            dataframe.loc[dataframe["DATA_ID"] == target_data_id, "VALUE"] = None
 
         # Return the updated DataFrame
         return dataframe

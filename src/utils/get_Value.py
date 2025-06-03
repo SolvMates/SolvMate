@@ -77,13 +77,13 @@ def get_value(target_data_id: str, dataframe):
     # Check if the target data ID exists in the DataFrame
     if target_data_id in dataframe['DATA_ID'].values:
         # Check if the value is a string (indicating multiple values)
-        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0], str):
+        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0], str):
             # Split the string into a list of values
-            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0].split('$$$$')
+            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0].split('$$$$')
             return data_list  # Return the list of values
         else:
             # Retrieve a single value
-            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0]
+            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].values[0]
     else:
         return 'Data id not found'  # Return an error message if the data ID is not found
 
