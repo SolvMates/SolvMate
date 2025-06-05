@@ -19,7 +19,7 @@ import re
 # Load environment variables for Supabase credentials
 load_dotenv()
 supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
+    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
 )
 
 # Register this page for Dash multi-page support

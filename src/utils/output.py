@@ -3,9 +3,9 @@ from pathlib import Path
 from supabase import create_client, Client
 import pandas as pd
 from openpyxl import load_workbook
-from input import run_Import
+#from input import run_Import
 from dotenv import load_dotenv
-from get_Value import get_value
+#from get_Value import get_value
 
 import numpy as np
 from datetime import datetime, timezone
@@ -97,7 +97,7 @@ def fill_templates_from_dataframe(
                     break
             if found == False:
                 print(
-                    "Warning: No value found for data_id {data_id}. Leaving cell {cell} empty."
+                    f"Warning: No value found for data_id {data_id}. Leaving cell {cell} empty."
                 )
 
             # Write the value into the corresponding cell
