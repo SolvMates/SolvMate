@@ -105,9 +105,8 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
         )
 
         # Final calculation for dnav
-        calculated_value = (base_case_assets - base_case_liabilities) - (
-            shocked_assets - shocked_liabilities
-        )
+        calculated_value = max(0,((base_case_assets - base_case_liabilities) - (
+            shocked_assets - shocked_liabilities)))
     elif aggregation_method_cd == "max_scen":
         calculated_value = max(child_values)
     else:
