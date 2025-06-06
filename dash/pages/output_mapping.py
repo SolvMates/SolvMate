@@ -243,7 +243,7 @@ def handle_upload_and_reload(
                     None, 
                 )
             return (
-                f"File '{filename}' uploaded successfully! Press 'Confirm Upload' to update the database.",
+                f"File '{filename}'Uploaded successfully! Press 'Confirm Upload' to update the database.",
                 render_upload_history(),
                 False,
                 {"filename": filename, "contents": contents},

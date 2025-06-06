@@ -108,6 +108,21 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
         calculated_value = max(0,((base_case_assets - base_case_liabilities) - (
             shocked_assets - shocked_liabilities)))
     elif aggregation_method_cd == "max_scen":
+
+        max_scenario_base_id = aggregation_tree["MAX_SCENARIO_BASE"]
+        master_child_nodes = aggregation_tree[aggregation_tree["PARENT_NODE_ID"] == max_scenario_base_id]
+        master_child_values = []
+        master_child_scneraios = []
+        for _, child in master_child_nodes.iterrows():
+            master_child_value = calculate_value(
+                child["NODE_ID"], aggregation_tree, data_id_enriched
+            )
+            if isinstance(master_child_value, str):  # If it's an error message
+                return master_child_value
+            master_child_values.append(master_child_value)
+        
+        #master_child_scneraio = filter tree by master_child_nodes with largest value
+        #Choose the maximum value from the master child nodes
         calculated_value = max(child_values)
     else:
         return "Method not defined"
