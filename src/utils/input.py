@@ -89,7 +89,6 @@ import numpy as np
 from datetime import datetime, timezone
 import openpyxl
 from pathlib import Path
-from get_Value import get_value
 
 
 load_dotenv()
@@ -276,7 +275,7 @@ def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
                     ].values[0]
                     != None
                 ):
-                    data_id_table.loc[data_id_table["DATA_ID"] == id, "Value"] = (
+                    data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = (
                         data_id_table.loc[
                             data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
                         ].values[0]

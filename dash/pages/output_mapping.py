@@ -19,7 +19,7 @@ import re
 # Load environment variables for Supabase credentials
 load_dotenv()
 supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
+    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
 )
 
 # Register this page for Dash multi-page support
@@ -243,7 +243,7 @@ def handle_upload_and_reload(
                     None, 
                 )
             return (
-                f"File '{filename}' uploaded successfully! Press 'Confirm Upload' to update the database.",
+                f"File '{filename}'Uploaded successfully! Press 'Confirm Upload' to update the database.",
                 render_upload_history(),
                 False,
                 {"filename": filename, "contents": contents},

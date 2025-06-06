@@ -1,4 +1,3 @@
-
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -76,15 +75,15 @@ def get_value(target_data_id: str, dataframe):
 
     # Check if the target data ID exists in the DataFrame
     if target_data_id in dataframe['DATA_ID'].values:
+        # Get the value
+        value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'VALUE'].iloc[0]
+        
         # Check if the value is a string (indicating multiple values)
-        if isinstance(dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0], str):
+        if isinstance(value, str) and '$$$$' in value:
             # Split the string into a list of values
-            data_list = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0].split('$$$$')
+            data_list = value.split('$$$$')
             return data_list  # Return the list of values
         else:
-            # Retrieve a single value
-            data_value = dataframe.loc[dataframe['DATA_ID'] == target_data_id, 'Value'].values[0]
+            return value  # Return the single value
     else:
         return 'Data id not found'  # Return an error message if the data ID is not found
-
-    return data_value  # Return the retrieved value
