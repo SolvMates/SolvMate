@@ -3,131 +3,152 @@ from pathlib import Path
 from supabase import create_client, Client
 import pandas as pd
 from openpyxl import load_workbook
-from input import run_Import
+from utils.input import run_Import
 from dotenv import load_dotenv
-from get_Value import get_value
-
+from utils.get_Value import get_value
 import numpy as np
 from datetime import datetime, timezone
-
 
 # Initialize the Supabase client
 load_dotenv()
 supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
+    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
 )
 
-
-def fill_templates_from_dataframe(
-    dataframe: pd.DataFrame, output_dir="/workspaces/SolvMate/outputs"
-):
+def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Fills Excel templates based on the mapping defined in the Supabase database.
-
-    Parameters:
-    -----------
-    - dataframe (pd.DataFrame): The DataFrame containing `data_id` and `value` pairs.
-    - output_dir (str): The directory where the filled templates will be saved.
-
+    Ensure the DataFrame has the required columns with correct names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        
     Returns:
-    --------
-    None
+        pd.DataFrame: DataFrame with normalized column names
     """
-    # Ensure the input DataFrame has a column named 'DATA_ID'
-    if "DATA_ID" not in dataframe.columns:
-        if "NODE_ID" in dataframe.columns:
-            dataframe = dataframe.rename(columns={"NODE_ID": "DATA_ID"})
+    # Handle DATA_ID column
+    if "DATA_ID" not in df.columns:
+        if "NODE_ID" in df.columns:
+            df = df.rename(columns={"NODE_ID": "DATA_ID"})
         else:
-            raise ValueError(
-                "The input DataFrame must contain a column named 'DATA_ID' or 'NODE_ID'."
-            )
-    # Fetch the output mapping data from the Supabase database
+            raise ValueError("The input DataFrame must contain a column named 'DATA_ID' or 'NODE_ID'.")
 
+    # Handle VALUE column
+    if "VALUE" not in df.columns:
+        if "Value" in df.columns:
+            df = df.rename(columns={"Value": "VALUE"})
+        elif "value" in df.columns:
+            df = df.rename(columns={"value": "VALUE"})
+        else:
+            raise ValueError("The input DataFrame must contain a column named 'VALUE', 'Value', or 'value'.")
+            
+    return df
+
+def fetch_mapping_data() -> pd.DataFrame:
+    """
+    Fetch output mapping data from Supabase with pagination.
+    
+    Returns:
+        pd.DataFrame: Mapping data from Supabase
+    """
     mapping_data = pd.DataFrame()
-    offset = 0  # Offset for pagination
-    limit = 1000  # Number of rows to fetch per request
+    offset = 0
+    limit = 1000
 
     while True:
-        # Fetch data from the Supabase table 'data_id' with pagination
         response = (
             supabase.table("output_mapping")
             .select("*")
-            .range(offset, offset + limit - 1)  # Fetch rows within the specified range
+            .range(offset, offset + limit - 1)
             .execute()
         )
 
-        # Convert the response data to a DataFrame
         temp_df = pd.DataFrame(response.data)
         if temp_df.empty:
-            break  # Exit the loop if no more data is available
+            break
 
-        # Append the fetched data to the main DataFrame and remove duplicates
         mapping_data = pd.concat([mapping_data, temp_df])
-        offset += limit  # Increment the offset for the next request
+        offset += limit
 
-    # Load the template file
-    template_path = Path(f"/workspaces/SolvMate/templates/Output_ERGO.xlsx")
+    return mapping_data
+
+def write_value_to_cell(sheet, cell: str, value) -> None:
+    """
+    Write a value to a specific cell in the worksheet.
+    
+    Args:
+        sheet: The worksheet object
+        cell (str): Cell reference (e.g., 'A1')
+        value: Value to write
+    """
+    if value is None:
+        return
+        
+    if isinstance(value, list):
+        sheet[cell] = value[0]
+    else:
+        try:
+            sheet[cell] = float(value)
+        except (ValueError, TypeError):
+            sheet[cell] = str(value)
+
+def fill_QRT_from_dataframe(
+    dataframe: pd.DataFrame, output_dir="/workspaces/SolvMate/outputs"
+) -> None:
+    """
+    Fill Excel templates with values from DataFrame based on mapping.
+    
+    Args:
+        dataframe (pd.DataFrame): DataFrame containing DATA_ID and VALUE pairs
+        output_dir (str): Output directory for filled template
+    """
+    # Normalize column names
+    dataframe = normalize_column_names(dataframe)
+    
+    # Fetch mapping data
+    mapping_data = fetch_mapping_data()
+    
+    # Load template
+    template_path = Path("/workspaces/SolvMate/templates/Output_ERGO.xlsx")
     workbook = load_workbook(template_path)
-
-    # Iterate over all worksheets in the workbook
+    
+    # Process each worksheet
     for sheet_name in workbook.sheetnames:
-        sheet = workbook[sheet_name]
-        if sheet_name.startswith("26") == True:
-            print(f"Skipping sheet: {sheet_name}")  # Skip sheets starting with "26"
+        if sheet_name.startswith("26"):
+            print(f"Skipping sheet: {sheet_name}")
             continue
-        # Filter the mapping data for the current worksheet
+            
+        sheet = workbook[sheet_name]
         worksheet_mapping = mapping_data[mapping_data["QRT_NAME"] == sheet_name]
-        # Iterate over all `data_id` entries in the mapping
-        for id in worksheet_mapping["ID"].values:
-            cell = worksheet_mapping.loc[
-                worksheet_mapping["ID"] == id, "CELL_REFERENCE"
-            ].values[0]
-            data_id = worksheet_mapping.loc[
-                worksheet_mapping["ID"] == id, "DATA_ID"
-            ].values[0]
-            found = False
-            value = None
-            if type(data_id) == str:
+        
+        # Process each mapping entry
+        for mapping_id in worksheet_mapping["ID"].values:
+            mapping_row = worksheet_mapping[worksheet_mapping["ID"] == mapping_id]
+            cell = mapping_row["CELL_REFERENCE"].values[0]
+            data_id = mapping_row["DATA_ID"].values[0]
+            
+            if isinstance(data_id, str):
                 data_id = data_id.strip()
-            for data_id_from_dataframe in dataframe["DATA_ID"].values:
-                if data_id_from_dataframe == data_id:
+                
+            # Try to get value from DataFrame
+            try:
+                if data_id in dataframe["DATA_ID"].values:
                     value = get_value(data_id, dataframe)
                     print(f"Found value for data_id {data_id}: {value}")
-                    found = True
-                    break
-            if found == False:
-                print(
-                    "Warning: No value found for data_id {data_id}. Leaving cell {cell} empty."
-                )
-
-            # Write the value into the corresponding cell
-
-            if value is not None:
-                if type(value) == list:
-                    sheet[cell] = value[0]
                 else:
-                    try:
-                        # Convert the value to a float if possible
-                        value = float(value)
-                        sheet[cell] = value
-                    except ValueError:
-                        # If conversion fails, write the value as a string
-                        sheet[cell] = str(value)
-
-    # Save the filled template in the output directory
-    output_path = Path(output_dir) / f"Filled_Output_ERGO.xlsx"
+                    value = ""
+                    
+                write_value_to_cell(sheet, cell, value)
+                    
+            except Exception as e:
+                print(f"Error processing data_id {data_id} for cell {cell}: {str(e)}")
+                continue
+    
+    # Save filled template
+    output_path = Path(output_dir) / "Filled_Output_ERGO.xlsx"
     workbook.save(output_path)
-    print(f"Template filled and saved to {output_path}.")
-
-
-def run_output(dataframe: pd.DataFrame, output_dir :str = "/workspaces/SolvMate/outputs"):
-    fill_templates_from_dataframe(dataframe, output_dir)
+    print(f"Template filled and saved to {output_path}")
 
 
 if __name__ == "__main__":
-    # Example DataFrame with `data_id` and `value` pairs
-
     dataframe = run_Import("/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls")
-
-    # Fill the templates based on the DataFrame
-    fill_templates_from_dataframe(dataframe)
+    fill_QRT_from_dataframe(dataframe)

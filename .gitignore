@@ -176,13 +176,10 @@ cython_debug/
 
 input/
 output/
-src/risks/
-src/utils/aggregate_tree.py
-src/utils/output.py
+templates/
 src/utils/test.py
 src/utils/=2.0.1
 src/utils/__pycache__
-templates/
 examples/
 outputs/
 src/solvmate_main.ipynb

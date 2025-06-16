@@ -105,6 +105,7 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
         )
 
         # Final calculation for dnav
+
         calculated_value = max((base_case_assets - base_case_liabilities) - (shocked_assets - shocked_liabilities), 0) 
     
     elif aggregation_method_cd == "max_scen":
@@ -158,7 +159,6 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
         # store calculated value in current node
         aggregation_tree.loc[aggregation_tree["NODE_ID"] == node_id, "VALUE"] = val
         return val
-
 
     else:
         return "Method not defined"
