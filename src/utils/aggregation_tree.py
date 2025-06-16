@@ -105,11 +105,61 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
         )
 
         # Final calculation for dnav
-        calculated_value = (base_case_assets - base_case_liabilities) - (
-            shocked_assets - shocked_liabilities
-        )
+        calculated_value = max((base_case_assets - base_case_liabilities) - (shocked_assets - shocked_liabilities), 0) 
+    
     elif aggregation_method_cd == "max_scen":
-        calculated_value = max(child_values)
+        #get impostor base node id from MAX_SCENARIO_BASE column
+        impostor_base_id = aggregation_tree.loc[aggregation_tree["NODE_ID"] == node_id, "MAX_SCENARIO_BASE"].iat[0]
+
+        #find children of impostor base node
+        impostor_children = aggregation_tree.loc[aggregation_tree["PARENT_NODE_ID"] == impostor_base_id]
+
+        if impostor_children.empty:
+            val = float("nan")  # or 0
+        else:
+            # Recursively calculate and store VALUE for impostor children (if not done yet)
+            for idx, child_row in impostor_children.iterrows():
+                child_node_id = child_row["NODE_ID"]
+                if pd.isna(aggregation_tree.at[idx, "VALUE"]):
+                    aggregation_tree.at[idx, "VALUE"] = calculate_value(child_node_id, aggregation_tree, data_id_enriched)
+
+            # get max value among impostor children
+            max_val_impostor = impostor_children["VALUE"].max()
+
+            # get all scenarios with max VALUE
+            winning_scenarios = set(
+                impostor_children.loc[
+                    impostor_children["VALUE"] == max_val_impostor,
+                    "SCENARIO"
+                ].dropna().astype(str).tolist()
+            )
+
+            # find original children of current node_id
+            original_children = aggregation_tree.loc[aggregation_tree["PARENT_NODE_ID"] == node_id]
+
+            if original_children.empty:
+                val = float("nan")
+            else:
+                # recursively calculate for original children as well if needed
+                for idx, child_row in original_children.iterrows():
+                    child_node_id = child_row["NODE_ID"]
+                    if pd.isna(aggregation_tree.at[idx, "VALUE"]):
+                        aggregation_tree.at[idx, "VALUE"] = calculate_value(child_node_id, aggregation_tree, data_id_enriched)
+
+                # 4) filter original children by scenarios matching winning_scenarios
+                filtered = original_children[original_children["SCENARIO"].astype(str).isin(winning_scenarios)]
+
+                if not filtered.empty:
+                    val = filtered["VALUE"].max()
+                else:
+                    #max of all original children
+                    val = original_children["VALUE"].max()
+
+        # store calculated value in current node
+        aggregation_tree.loc[aggregation_tree["NODE_ID"] == node_id, "VALUE"] = val
+        return val
+
+
     else:
         return "Method not defined"
 
@@ -137,9 +187,7 @@ def aggregate_tree(aggregation_tree, data_id_enriched, aggregation_tree_id):
         filtered_tree.at[index, "VALUE"] = calculate_value(
             node_id, filtered_tree, data_id_enriched
         )
-
     return filtered_tree
-
 
 # Example usage:
 # aggregation_tree_df = pd.DataFrame({...})  # Your aggregation tree data
