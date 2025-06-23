@@ -31,7 +31,7 @@ def calculate_value(node_id, aggregation_tree, data_id_enriched):
     node_info = aggregation_tree[aggregation_tree["NODE_ID"] == node_id]
 
     if node_info.empty:
-        return "Input insufficient"  # Node ID not found
+        return " "  # Node ID not found
 
     node = node_info.iloc[0]
     aggregation_method_cd = node["AGGREGATION_METHOD_CD"]
