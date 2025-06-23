@@ -89,207 +89,205 @@ import numpy as np
 from datetime import datetime, timezone
 import openpyxl
 from pathlib import Path
+import logging
+from typing import List, Union, Dict, Optional, Any, Tuple
+from .get_Value import get_value
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
-supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
-)
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def convert_coord_to_list(coord):
-    # Convert R..C..Code to Coordinates
-    row = int(
-        coord[1 : coord.index("C")]
-    )  # Extract the row number from the coordinate string (e.g., "R1C2" -> 1)
-    col = int(
-        coord[coord.index("C") + 1 :]
-    )  # Extract the column number from the coordinate string (e.g., "R1C2" -> 2)
-    return [
-        [row, col]
-    ]  # Return the coordinates as a list containing row and column indices
+def convert_coord_to_list(coord: str) -> List[List[int]]:
+    """
+    Convert Excel-style coordinate to list of coordinates.
+    
+    Args:
+        coord: Excel coordinate string (e.g., 'R1C1')
+        
+    Returns:
+        List containing [row, col] indices
+    """
+    try:
+        c_index = coord.index("C")
+        row = int(coord[1:c_index])
+        col = int(coord[c_index + 1:])
+        return [[row, col]]
+    except (ValueError, IndexError) as e:
+        logger.error(f"Invalid coordinate format: {coord}")
+        raise ValueError(f"Invalid coordinate format: {coord}") from e
 
 
-def get_value_from_df(df, coord):
-    if isinstance(coord, str):  # Check if the coordinate is a string
-        coord_list = convert_coord_to_list(
-            coord
-        )  # Convert the string coordinate to a list of row and column indices
-    else:
-        coord_list = [
-            coord
-        ]  # If already a list, wrap it in another list for consistency
+def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
+    """
+    Get value from DataFrame using Excel-style coordinates or [row, col] list.
+    
+    Args:
+        df: Source DataFrame
+        coord: Excel coordinate string or [row, col] list
+        
+    Returns:
+        Value from the DataFrame at the specified position
+    """
+    try:
+        coord_list = convert_coord_to_list(coord) if isinstance(coord, str) else [coord]
+        row_idx = int(coord_list[0][0]) - 2
+        col_idx = int(coord_list[0][1]) - 1
 
-    row_number = (
-        coord_list[0][0] - 2
-    )  # Adjust the row index to be zero-based (DataFrame indexing starts at 0)
-    column_number = coord_list[0][1] - 1  # Adjust the column index to be zero-based
-
-    # Check if the row or column index is out of bounds for the DataFrame
-    if (
-        row_number < 0
-        or row_number >= df.shape[0]
-        or column_number < 0
-        or column_number >= df.shape[1]
-    ):
-        return "Coordinates out of DataFrame bounds"  # Return an error message if the indices are invalid
-
-    return df.iloc[
-        row_number, column_number
-    ]  # Retrieve the value from the DataFrame at the specified row and column
+        if (0 <= row_idx < df.shape[0]) and (0 <= col_idx < df.shape[1]):
+            return df.iloc[row_idx, col_idx]
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error getting value from DataFrame: {str(e)}")
+        return None
 
 
-def convert_excel_range_to_list(coord_range):
-    # Split the coordinate range into start and end coordinates
-    parts = coord_range.split(":")
-    start_coord = parts[0]  # Extract the starting coordinate (e.g., "R1C1")
-    end_coord = parts[1]  # Extract the ending coordinate (e.g., "R3C3")
+def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
+    """
+    Convert Excel-style range to list of coordinates.
+    
+    Args:
+        coord_range: Excel range string (e.g., 'R1C1:R3C3')
+        
+    Returns:
+        List of [row, col] coordinate pairs
+    """
+    try:
+        parts = coord_range.split(":")
+        if len(parts) < 2:
+            raise ValueError(f"Invalid range format: {coord_range}")
+            
+        start_coord = convert_coord_to_list(parts[0])[0]
+        end_coord = convert_coord_to_list(parts[1])[0]
+        step = int(parts[2]) if len(parts) > 2 else 1
 
-    # Check if a step value is provided
-    step = 1  # Default step value
-    if len(parts) == 3:
-        step = int(parts[2])  # Extract the step value if provided (e.g., "R1C1:R3C3:2")
-
-    # Extract row and column indices from the start coordinate
-    start_row = int(
-        start_coord[1 : start_coord.index("C")]
-    )  # Extract the row number from the start coordinate
-    start_col = int(
-        start_coord[start_coord.index("C") + 1 :]
-    )  # Extract the column number from the start coordinate
-
-    # Extract row and column indices from the end coordinate
-    end_row = int(
-        end_coord[1 : end_coord.index("C")]
-    )  # Extract the row number from the end coordinate
-    end_col = int(
-        end_coord[end_coord.index("C") + 1 :]
-    )  # Extract the column number from the end coordinate
-
-    # Initialize a list to store all coordinates in the range
-    coordinates = []
-
-    # Generate all coordinates within the range
-    for row in range(
-        start_row, end_row + 1, step
-    ):  # Iterate over rows with the specified step
-        for col in range(start_col, end_col + 1):  # Iterate over columns
-            coordinates.append(
-                [row, col]
-            )  # Append each coordinate as a list [row, col]
-
-    return coordinates  # Return the list of coordinates
+        coordinates = [
+            [row, col]
+            for row in range(start_coord[0], end_coord[0] + 1, step)
+            for col in range(start_coord[1], end_coord[1] + 1)
+        ]
+        
+        return coordinates
+        
+    except Exception as e:
+        logger.error(f"Error converting range to coordinates: {str(e)}")
+        raise
 
 
-def load_importdata(input_path: str, target_worksheet=None) -> pd.DataFrame:
-
-    # Initialize an empty DataFrame to store data from Supabase
-    data_id_table = pd.DataFrame()
-    offset = 0  # Offset for pagination
-    limit = 1000  # Number of rows to fetch per request
-
-    while True:
-        # Fetch data from the Supabase table 'data_id' with pagination
+def load_importdata(input_path: Union[str, Path], target_worksheet: Optional[str] = None) -> pd.DataFrame:
+    """
+    Load and process data from an Excel file based on configuration from Supabase.
+    
+    Args:
+        input_path: Path to the input Excel file
+        target_worksheet: Name of the worksheet to process
+        
+    Returns:
+        DataFrame containing the processed data
+    """
+    if not isinstance(input_path, (str, Path)):
+        raise TypeError("input_path must be a string or Path object")
+        
+    if target_worksheet is None:
+        raise ValueError("target_worksheet must be specified")
+    
+    input_path = Path(input_path) if isinstance(input_path, str) else input_path
+    
+    try:
+        # Fetch all data at once
         response = (
             supabase.table("data_id")
             .select("*")
-            .eq("WORKSHEET", target_worksheet)  # Filter by the target worksheet
-            .range(offset, offset + limit - 1)  # Fetch rows within the specified range
+            .eq("WORKSHEET", target_worksheet)
             .execute()
         )
+        
+        data_id_table = pd.DataFrame(response.data)
+        if data_id_table.empty:
+            logger.warning(f"No configuration found for worksheet: {target_worksheet}")
+            return pd.DataFrame()
+        
+        # Remove duplicates immediately
+        data_id_table = data_id_table.drop_duplicates(subset="DATA_ID", keep="first")
+        data_id_table.insert(1, 'VALUE', None)
 
-        # Convert the response data to a DataFrame
-        temp_df = pd.DataFrame(response.data)
-        if temp_df.empty:
-            break  # Exit the loop if no more data is available
-
-        # Append the fetched data to the main DataFrame and remove duplicates
-        data_id_table = pd.concat([data_id_table, temp_df]).drop_duplicates(
-            subset="DATA_ID", keep="first", ignore_index=True
-        )
-        offset += limit  # Increment the offset for the next request
-
-
-    # Add a new column 'VALUE' to store the extracted values
-    data_id_table.insert(1, 'VALUE', None)
-
-    i = 0  # Counter for debugging purposes
-
-    # Load the Excel worksheet into a DataFrame
-    if input_path.suffix == ".xlsb":
-        temp_df = pd.read_excel(
-            input_path, target_worksheet, header=0, engine="pyxlsb"
-        )  # Use 'pyxlsb' for .xlsb files
-    elif input_path.suffix == ".xls":
-        temp_df = pd.read_excel(
-            input_path, target_worksheet, header=0, engine="xlrd"
-        )  # Use 'xlrd' for .xls files
-    else:
-
-        raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
-    
-    
-    for id in data_id_table['DATA_ID']:        
-        i += 1
-        # Get the coordinate associated with the current data ID
-        coord = data_id_table.loc[data_id_table["DATA_ID"] == id, "RC_CODE"].values[0]
-
-        if id.endswith("*"):  # Check if the data ID ends with '*'
-            Value_list = []  # Initialize a list to store values
-            coord_list = convert_excel_range_to_list(
-                coord
-            )  # Convert the range to a list of coordinates
-
-            # Retrieve values for each coordinate in the range
-            for coordinate in coord_list:
-                new_value = get_value_from_df(temp_df, coordinate)
-                if (
-                    str(new_value) == "nan"
-                    or new_value == "Coordinates out of DataFrame bounds"
-                ):
-                    print("")
-                else:
-                    Value_list.append(new_value)
-
-                # Join the values with '$$$$' and store them in the DataFrame
-
-            new_value = '$$$$'.join(map(str, Value_list))
-            data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
-        else:
-            # Retrieve a single value and store it in the DataFrame
-            new_value = get_value_from_df(temp_df, coord)
-
-            if str(new_value) == "nan" or new_value is None:
-                if (
-                    str(
-                        data_id_table.loc[
-                            data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
-                        ].values[0]
-                    )
-                    != "nan"
-                ):
-                    print("")
-                if (
-                    data_id_table.loc[
-                        data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
-                    ].values[0]
-                    != None
-                ):
-                    data_id_table.loc[data_id_table["DATA_ID"] == id, "VALUE"] = (
-                        data_id_table.loc[
-                            data_id_table["DATA_ID"] == id, "DEFAULT_LIST_VALUE"
-                        ].values[0]
-                    )
-
-                else:
-                    if id == "INFO_REPORT_DT" and input_path.suffix == ".xlsb":
-                        new_value = pd.to_datetime(
-                            new_value, unit="D", origin="1900-04-01"
-                        )  # the read excel function read the date as a number, so we need to convert it to a date
-                    data_id_table = data_id_table[data_id_table["DATA_ID"] != id]
+        # Load Excel data
+        try:
+            if input_path.suffix == ".xlsb":
+                df = pd.read_excel(input_path, sheet_name=target_worksheet, header=0, engine="pyxlsb")
+            elif input_path.suffix == ".xls":
+                df = pd.read_excel(input_path, sheet_name=target_worksheet, header=0, engine="xlrd")
             else:
-                data_id_table.loc[data_id_table['DATA_ID'] == id, 'VALUE'] = new_value
-    return data_id_table  # Return the processed DataFrame
+                raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
+        except Exception as e:
+            logger.error(f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}")
+            raise
+
+        # Create a fast lookup dictionary for values
+        value_map: Dict[Tuple[int, int], Any] = {}
+        for row_idx in range(len(df)):
+            for col_idx in range(len(df.columns)):
+                val = df.iloc[row_idx, col_idx]
+                if pd.notna(val):
+                    value_map[(row_idx + 2, col_idx + 1)] = val
+
+        # Process data IDs efficiently
+        for idx, row in data_id_table.iterrows():
+            data_id = str(row['DATA_ID'])
+            coord = str(row['RC_CODE'])
+            
+            try:
+                if data_id.endswith("*"):
+                    # Handle range of values
+                    coord_list = convert_excel_range_to_list(coord)
+                    values = []
+                    for c in coord_list:
+                        val = value_map.get((c[0], c[1]))
+                        if pd.notna(val):
+                            values.append(str(val))
+                    
+                    if values:
+                        data_id_table.at[idx, 'VALUE'] = '$$$$'.join(values)
+                else:
+                    # Handle single value
+                    coord_list = convert_coord_to_list(coord)[0]
+                    val = value_map.get((coord_list[0], coord_list[1]))
+                    
+                    if pd.notna(val):
+                        if data_id == "INFO_REPORT_DT" and input_path.suffix == ".xlsb":
+                            try:
+                                val = pd.Timestamp('1899-12-30') + pd.Timedelta(days=int(val))
+                            except:
+                                logger.warning(f"Could not convert date value for {data_id}: {val}")
+                        data_id_table.at[idx, 'VALUE'] = val
+                    elif pd.notna(row.get('DEFAULT_LIST_VALUE')):
+                        data_id_table.at[idx, 'VALUE'] = row['DEFAULT_LIST_VALUE']
+                    else:
+                        data_id_table.drop(idx, inplace=True)
+                        
+            except Exception as e:
+                logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
+                continue
+
+        return data_id_table
+
+    except Exception as e:
+        logger.error(f"Error in load_importdata: {str(e)}")
+        raise
 
 
 def run_Import(
