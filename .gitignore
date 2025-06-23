@@ -181,3 +181,4 @@ src/utils/test.py
 src/utils/=2.0.1
 src/utils/__pycache__
 examples/
+outputs/
