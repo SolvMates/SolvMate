@@ -91,12 +91,11 @@ import openpyxl
 from pathlib import Path
 import logging
 from typing import List, Union, Dict, Optional, Any, Tuple
-from .get_Value import get_value
+
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -106,7 +105,9 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+    raise ValueError(
+        "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
+    )
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -114,17 +115,17 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def convert_coord_to_list(coord: str) -> List[List[int]]:
     """
     Convert Excel-style coordinate to list of coordinates.
-    
+
     Args:
         coord: Excel coordinate string (e.g., 'R1C1')
-        
+
     Returns:
         List containing [row, col] indices
     """
     try:
         c_index = coord.index("C")
         row = int(coord[1:c_index])
-        col = int(coord[c_index + 1:])
+        col = int(coord[c_index + 1 :])
         return [[row, col]]
     except (ValueError, IndexError) as e:
         logger.error(f"Invalid coordinate format: {coord}")
@@ -134,11 +135,11 @@ def convert_coord_to_list(coord: str) -> List[List[int]]:
 def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
     """
     Get value from DataFrame using Excel-style coordinates or [row, col] list.
-    
+
     Args:
         df: Source DataFrame
         coord: Excel coordinate string or [row, col] list
-        
+
     Returns:
         Value from the DataFrame at the specified position
     """
@@ -150,7 +151,7 @@ def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
         if (0 <= row_idx < df.shape[0]) and (0 <= col_idx < df.shape[1]):
             return df.iloc[row_idx, col_idx]
         return None
-        
+
     except Exception as e:
         logger.error(f"Error getting value from DataFrame: {str(e)}")
         return None
@@ -159,10 +160,10 @@ def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
 def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
     """
     Convert Excel-style range to list of coordinates.
-    
+
     Args:
         coord_range: Excel range string (e.g., 'R1C1:R3C3')
-        
+
     Returns:
         List of [row, col] coordinate pairs
     """
@@ -170,7 +171,7 @@ def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
         parts = coord_range.split(":")
         if len(parts) < 2:
             raise ValueError(f"Invalid range format: {coord_range}")
-            
+
         start_coord = convert_coord_to_list(parts[0])[0]
         end_coord = convert_coord_to_list(parts[1])[0]
         step = int(parts[2]) if len(parts) > 2 else 1
@@ -180,33 +181,35 @@ def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
             for row in range(start_coord[0], end_coord[0] + 1, step)
             for col in range(start_coord[1], end_coord[1] + 1)
         ]
-        
+
         return coordinates
-        
+
     except Exception as e:
         logger.error(f"Error converting range to coordinates: {str(e)}")
         raise
 
 
-def load_importdata(input_path: Union[str, Path], target_worksheet: Optional[str] = None) -> pd.DataFrame:
+def load_importdata(
+    input_path: Union[str, Path], target_worksheet: Optional[str] = None
+) -> pd.DataFrame:
     """
     Load and process data from an Excel file based on configuration from Supabase.
-    
+
     Args:
         input_path: Path to the input Excel file
         target_worksheet: Name of the worksheet to process
-        
+
     Returns:
         DataFrame containing the processed data
     """
     if not isinstance(input_path, (str, Path)):
         raise TypeError("input_path must be a string or Path object")
-        
+
     if target_worksheet is None:
         raise ValueError("target_worksheet must be specified")
-    
+
     input_path = Path(input_path) if isinstance(input_path, str) else input_path
-    
+
     try:
         # Fetch all data at once
         response = (
@@ -215,26 +218,34 @@ def load_importdata(input_path: Union[str, Path], target_worksheet: Optional[str
             .eq("WORKSHEET", target_worksheet)
             .execute()
         )
-        
+
         data_id_table = pd.DataFrame(response.data)
         if data_id_table.empty:
             logger.warning(f"No configuration found for worksheet: {target_worksheet}")
             return pd.DataFrame()
-        
+
         # Remove duplicates immediately
         data_id_table = data_id_table.drop_duplicates(subset="DATA_ID", keep="first")
-        data_id_table.insert(1, 'VALUE', None)
+        data_id_table.insert(1, "VALUE", None)
 
         # Load Excel data
         try:
             if input_path.suffix == ".xlsb":
-                df = pd.read_excel(input_path, sheet_name=target_worksheet, header=0, engine="pyxlsb")
+                df = pd.read_excel(
+                    input_path, sheet_name=target_worksheet, header=0, engine="pyxlsb"
+                )
             elif input_path.suffix == ".xls":
-                df = pd.read_excel(input_path, sheet_name=target_worksheet, header=0, engine="xlrd")
+                df = pd.read_excel(
+                    input_path, sheet_name=target_worksheet, header=0, engine="xlrd"
+                )
             else:
-                raise ValueError(f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported.")
+                raise ValueError(
+                    f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported."
+                )
         except Exception as e:
-            logger.error(f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}")
+            logger.error(
+                f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}"
+            )
             raise
 
         # Create a fast lookup dictionary for values
@@ -247,38 +258,50 @@ def load_importdata(input_path: Union[str, Path], target_worksheet: Optional[str
 
         # Process data IDs efficiently
         for idx, row in data_id_table.iterrows():
-            data_id = str(row['DATA_ID'])
-            coord = str(row['RC_CODE'])
-            
+            data_id = str(row["DATA_ID"])
+            coord = str(row["RC_CODE"])
+
             try:
                 if data_id.endswith("*"):
                     # Handle range of values
                     coord_list = convert_excel_range_to_list(coord)
-                    values = []
+
+                    i = 0
                     for c in coord_list:
                         val = value_map.get((c[0], c[1]))
+                        new_data_id = data_id.rstrip("*") + str(i)
+                        new_row = row.copy()
+                        new_row["DATA_ID"] = new_data_id
+                        new_row["VALUE"] = val
+                        new_row["TABLE_ID"] = 0
                         if pd.notna(val):
-                            values.append(str(val))
-                    
-                    if values:
-                        data_id_table.at[idx, 'VALUE'] = '$$$$'.join(values)
+                            data_id_table = pd.concat(
+                                [data_id_table, pd.DataFrame([new_row])],
+                                ignore_index=True,
+                            )
+                        i = i + 1
+
                 else:
                     # Handle single value
                     coord_list = convert_coord_to_list(coord)[0]
                     val = value_map.get((coord_list[0], coord_list[1]))
-                    
+
                     if pd.notna(val):
                         if data_id == "INFO_REPORT_DT" and input_path.suffix == ".xlsb":
                             try:
-                                val = pd.Timestamp('1899-12-30') + pd.Timedelta(days=int(val))
+                                val = pd.Timestamp("1899-12-30") + pd.Timedelta(
+                                    days=int(val)
+                                )
                             except:
-                                logger.warning(f"Could not convert date value for {data_id}: {val}")
-                        data_id_table.at[idx, 'VALUE'] = val
-                    elif pd.notna(row.get('DEFAULT_LIST_VALUE')):
-                        data_id_table.at[idx, 'VALUE'] = row['DEFAULT_LIST_VALUE']
+                                logger.warning(
+                                    f"Could not convert date value for {data_id}: {val}"
+                                )
+                        data_id_table.at[idx, "VALUE"] = val
+                    elif pd.notna(row.get("DEFAULT_LIST_VALUE")):
+                        data_id_table.at[idx, "VALUE"] = row["DEFAULT_LIST_VALUE"]
                     else:
                         data_id_table.drop(idx, inplace=True)
-                        
+
             except Exception as e:
                 logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
                 continue
@@ -332,10 +355,60 @@ def run_Import(
     return combined_df  # Return the combined DataFrame
 
 
+def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame:
+    column_data_ids = data_id_enriched.loc[
+        data_id_enriched["TABLE_ID"] == table_id, "DATA_ID"
+    ].tolist()
+    help_list = []
+
+    for column_id in column_data_ids:
+        column_id = column_id.rstrip("*")
+        filtered_data_ids = data_id_enriched[
+            data_id_enriched["DATA_ID"].str.startswith(column_id)
+        ]
+        data_id_list = filtered_data_ids["DATA_ID"].tolist()
+        help_list.append(data_id_list)
+        biggest_element = 0
+        index = 0
+    for sublist in help_list:
+
+        current_data_id = column_data_ids[index]
+        last_element = sublist[-1]
+        if not last_element.endswith("*"):
+            n = len(current_data_id.rstrip("*"))
+            last_element = int(last_element[n:])
+
+            if last_element > biggest_element:
+                biggest_element = last_element
+        index = index + 1
+    rows = []
+    column_names = []
+    for id_names in column_data_ids:
+        column_names.append(id_names.rstrip("*"))
+    columns = ["INDEX"]
+    columns.extend(column_names)
+    for row_i in range(biggest_element + 1):
+        row = []
+        row.append(row_i)
+        for sublist in help_list:
+            right_data_id = None
+            value_for_right_data_id = None
+            for data_id in sublist:
+                if data_id.endswith("_" + str(row_i)):
+                    right_data_id = data_id
+                    value_for_right_data_id = data_id_enriched.loc[
+                        data_id_enriched["DATA_ID"] == right_data_id, "VALUE"
+                    ].values[0]
+            row.append(value_for_right_data_id)
+        rows.append(row)
+    result_dataframe = pd.DataFrame(rows, columns=columns)
+
+    return result_dataframe
+
+
 if __name__ == "__main__":
-    goal_dataframe = run_Import(
-        "/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls", ["Basic input"]
-    )
+    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.01_SAS_Input_CDR.xls")
+    testvar = get_dataframe(goal_dataframe, "CPTY_TYPE1")
     # create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
