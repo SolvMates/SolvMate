@@ -1,8 +1,12 @@
 from utils import aggregation_tree
-import numpy as np
+import pandas as pd
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import input
 
 #MARKET_INT
-def calculate_interest_rate_risk(data_id_enriched):
+def calculate_interest_rate_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate interest rate risk.
     
@@ -20,15 +24,17 @@ def calculate_interest_rate_risk(data_id_enriched):
     aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_L_BC', 'VALUE'] += sub_loan_value
 
     sub_loan_dn_value = data_id_enriched.loc[data_id_enriched['DATA_ID'] == 'MKT_INT_SUB_LOAN_DN_L_SH_N', 'VALUE'].sum()
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_SCR_N', 'VALUE'] += sub_loan_dn_value
+    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_N', 'VALUE'] += sub_loan_dn_value
+    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_G', 'VALUE'] += sub_loan_dn_value
 
     sub_loan_up_value = data_id_enriched.loc[data_id_enriched['DATA_ID'] == 'MKT_INT_SUB_LOAN_UP_L_SH_N', 'VALUE'].sum()
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_SCR_N', 'VALUE'] += sub_loan_up_value
+    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_N', 'VALUE'] += sub_loan_up_value
+    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_G', 'VALUE'] += sub_loan_up_value
 
     return aggregation_tree_market_ir_enriched
 
 #MARKET_EQU
-def calculate_equity_risk(data_id_enriched):
+def calculate_equity_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate equity risk.
     
@@ -45,7 +51,7 @@ def calculate_equity_risk(data_id_enriched):
 
 
 #MARKET_PRO
-def calculate_property_risk(data_id_enriched):
+def calculate_property_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate property risk.
     
@@ -61,7 +67,7 @@ def calculate_property_risk(data_id_enriched):
     return aggregation_tree_market_pro_enriched
 
 #MARKET_SPR
-def calculate_spread_risk(data_id_enriched):
+def calculate_spread_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate spread risk.
     
@@ -95,7 +101,7 @@ def calculate_spread_risk(data_id_enriched):
     return aggregation_tree_market_spr_enriched
 
 #MARKET - Total Market risk
-def calculate_total_market_risk(data_id_enriched):
+def calculate_total_market_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate total market risk.
     
@@ -110,4 +116,32 @@ def calculate_total_market_risk(data_id_enriched):
     return aggregation_tree_market_enriched
 
 
+def calculate_market_risk_all_subrisks(input_file: str) -> pd.DataFrame:
+    """
+    Calculate market risk by aggregating various market risk components.
+    
+    Args:
+        input_file (str): Path to the input file containing market risk data.
+    
+    Returns:
+        pd.DataFrame: Aggregated market risk results
+    """
+    # Load input data
+    data_id_enriched_market = input.run_Import(input_file, ['MarketR'])
+    
+    # Calculate individual market subrisks
+    aggregation_tree_market_ir_enriched = calculate_interest_rate_risk(data_id_enriched_market)
+    aggregation_tree_market_eq_enriched = calculate_equity_risk(data_id_enriched_market)
+    aggregation_tree_market_pro_enriched = calculate_property_risk(data_id_enriched_market)
+    aggregation_tree_market_spr_enriched = calculate_spread_risk(data_id_enriched_market)
+    aggregation_tree_market_enriched = calculate_total_market_risk(data_id_enriched_market)
+    
+    # Combine all market risk components into a single DataFrame
+    aggregation_tree_market_all_risks = pd.concat([aggregation_tree_market_enriched,
+                                                    aggregation_tree_market_ir_enriched,
+                                                    aggregation_tree_market_eq_enriched,
+                                                    aggregation_tree_market_pro_enriched,
+                                                    aggregation_tree_market_spr_enriched], ignore_index=True)
+            
+    return aggregation_tree_market_all_risks
 
