@@ -91,7 +91,7 @@ import openpyxl
 from pathlib import Path
 import logging
 from typing import List, Union, Dict, Optional, Any, Tuple
-from .get_Value import get_value
+
 
 # Setup logging
 logging.basicConfig(
@@ -254,14 +254,19 @@ def load_importdata(input_path: Union[str, Path], target_worksheet: Optional[str
                 if data_id.endswith("*"):
                     # Handle range of values
                     coord_list = convert_excel_range_to_list(coord)
-                    values = []
+                    
+                    i=0
                     for c in coord_list:
                         val = value_map.get((c[0], c[1]))
+                        new_data_id = data_id.rstrip('*') + str(i)
+                        new_row = row.copy()
+                        new_row["DATA_ID"] = new_data_id
+                        new_row["VALUE"] = val
+                        new_row["TABLE_ID"] = 0
                         if pd.notna(val):
-                            values.append(str(val))
-                    
-                    if values:
-                        data_id_table.at[idx, 'VALUE'] = '$$$$'.join(values)
+                            data_id_table = pd.concat([data_id_table, pd.DataFrame([new_row])], ignore_index=True)
+                        i =i+1
+                
                 else:
                     # Handle single value
                     coord_list = convert_coord_to_list(coord)[0]
@@ -331,11 +336,55 @@ def run_Import(
     combined_df = pd.concat(dataframes, ignore_index=True)
     return combined_df  # Return the combined DataFrame
 
+def get_dataframe(data_id_enriched : pd.DataFrame, table_id : str )-> pd.DataFrame : 
+    column_data_ids = data_id_enriched.loc[data_id_enriched['TABLE_ID'] == table_id, 'DATA_ID'].tolist()
+    help_list =[]
+    
+    for column_id in column_data_ids :
+        column_id = column_id.rstrip('*')
+        filtered_data_ids = data_id_enriched[data_id_enriched['DATA_ID'].str.startswith(column_id)]
+        data_id_list = filtered_data_ids['DATA_ID'].tolist()
+        help_list.append(data_id_list)
+        biggest_element = 0
+        index = 0
+    for sublist in help_list :
+        
+        current_data_id = column_data_ids[index]
+        last_element = sublist[-1]
+        if not last_element.endswith("*") :
+            n = len(current_data_id.rstrip('*'))
+            last_element = int(last_element[n:])
+            
+            if last_element > biggest_element :
+                biggest_element = last_element
+        index = index + 1    
+    rows = []
+    column_names = []
+    for id_names in column_data_ids :
+        column_names.append(id_names.rstrip('*'))
+    columns=['INDEX']
+    columns.extend(column_names)
+    for row_i in range(biggest_element + 1) :
+        row=[]
+        row.append(row_i)
+        for sublist in help_list :
+            right_data_id = None
+            value_for_right_data_id = None
+            for data_id in sublist :
+                if data_id.endswith("_"+str(row_i)) :
+                    right_data_id = data_id    
+                    value_for_right_data_id = data_id_enriched.loc[data_id_enriched['DATA_ID'] == right_data_id, 'VALUE'].values[0]
+            row.append(value_for_right_data_id)
+        rows.append(row)
+    result_dataframe = pd.DataFrame(rows,columns=columns)
+
+    return result_dataframe
 
 if __name__ == "__main__":
     goal_dataframe = run_Import(
-        "/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls", ["Basic input"]
+        "/workspaces/SolvMate/input/04.01_SAS_Input_CDR.xls"
     )
+    testvar = get_dataframe(goal_dataframe,"CPTY_TYPE1")
     # create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
