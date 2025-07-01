@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, "/workspaces/SolvMate")
 import pandas as pd
 import numpy as np
 import os
@@ -5,6 +7,7 @@ import logging
 from typing import Tuple, Dict, List, Optional
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from src.utils.input import get_dataframe, run_Import
 
 # Set up logging
 logging.basicConfig(
@@ -580,7 +583,7 @@ def transform_to_aggregation_tree(aggregated_sne: pd.DataFrame) -> pd.DataFrame:
     return result
 
 # Modify the main function to include the transformation and include it in results
-def calculate_cpty_type1(input_file: str, output_folder: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, float, float, float, pd.DataFrame]:
+def calculate_cpty_type1(data_id_enriched: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, float, float, float, pd.DataFrame]:
     """
     Main function to process counterparty risk calculations.
     """
@@ -593,33 +596,59 @@ def calculate_cpty_type1(input_file: str, output_folder: str) -> Tuple[pd.DataFr
         rating_pd_dict = dict(zip(cdr_rating_pd['Rating'], cdr_rating_pd['PD']))
         pool_ratio_dict = dict(zip(cdr_pool_ratio['Rating'], cdr_pool_ratio['Pool SII Ratio']))
         
-        # Read and process input file
-        engine = 'pyxlsb' if input_file.endswith('.xlsb') else None
-        df = pd.read_excel(
-            input_file,
-            sheet_name='CDR',
-            header=None,
-            skiprows=17,
-            usecols='C:AD',
-            nrows=2000,
-            engine=engine
-        )
+        df = get_dataframe(data_id_enriched, "CPTY_TYPE1")
 
         # Process data
-        df = df[[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]]
-            
+
+        #df = df[[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]]
+        
+        # Previous renaming logic
+        #df = df.rename(columns={
+        #    2: 'Counterparty', 3: 'Parent Group', 4: 'LEI Code',
+        #    5: 'Type', 6: 'Rating', 7: 'SCR Ratio', 8: 'MCR Ratio', 
+        #    9: 'Market Value', 10: 'RI Deposits', 11: 'RI > 60% tied up',
+        #    13: 'Risk Mitigating Effect', 15: 'Risk adjustet Mortgage',
+        #    16: 'Morgage Guarantee', 17: 'Market Value Collateral', 
+        #    18: 'Collateral Adjustment', 19: '3rd Party Requirement',
+        #    20: 'Collataral Insolvency', 21: 'Simplified Collateral',
+        #    22: "Pool Name", 23: 'Pool Type', 24: 'Pool SII Scope',
+        #    25: 'Pool EOF', 26: 'Pool SoR', 27: 'Pool USoR',
+        #    28: 'Pool >= 60% Collateral', 29: 'Pool RM Contribution'
+        #})
+
+        # Rename columns to match expected names
+        # Note: The original code had some issues with column names, fixed here
         df = df.rename(columns={
-            2: 'Counterparty', 3: 'Parent Group', 4: 'LEI Code',
-            5: 'Type', 6: 'Rating', 7: 'SCR Ratio', 8: 'MCR Ratio', 
-            9: 'Market Value', 10: 'RI Deposits', 11: 'RI > 60% tied up',
-            13: 'Risk Mitigating Effect', 15: 'Risk adjustet Mortgage',
-            16: 'Morgage Guarantee', 17: 'Market Value Collateral', 
-            18: 'Collateral Adjustment', 19: '3rd Party Requirement',
-            20: 'Collataral Insolvency', 21: 'Simplified Collateral',
-            22: "Pool Name", 23: 'Pool Type', 24: 'Pool SII Scope',
-            25: 'Pool EOF', 26: 'Pool SoR', 27: 'Pool USoR',
-            28: 'Pool >= 60% Collateral', 29: 'Pool RM Contribution'
+            "CPTY_LGD_CPTY_NAME_": "Counterparty",
+            "CPTY_LGD_CPTY_PARENT_NAME_": "Parent Group",
+            "CPTY_LGD_CPTY_CODE_": "LEI Code",
+            "CPTY_LGD_EXP_TYPE_": "Type",
+            "CPTY_LGD_CPTY_RATING_": "Rating",
+            "CPTY_LGD_CPTY_SCR_RATIO_": "SCR Ratio",
+            "CPTY_LGD_CPTY_MCR_RATIO_": "MCR Ratio",
+            "CPTY_LGD_EXP_MVAL_": "Market Value",
+            "CPTY_LGD_EXP_DEPO_": "RI Deposits",
+            "CPTY_LGD_CPTY_RI_TIED_UP_": "RI > 60% tied up",
+            "CPTY_LGD_EXP_RM_FLG_": "Risk Mitigation Flag",
+            "CPTY_LGD_RM_EFFECT_": "Risk Mitigating Effect",
+            "CPTY_LGD_RM_SIMPL_FLG_": "Simplified Risk Mitigation Flag",
+            "CPTY_LGD_MORT_RISK_ADJ_VAL_": "Risk adjustet Mortgage",
+            "CPTY_LGD_MORT_GUARANTEE_": "Morgage Guarantee",
+            "CPTY_LGD_COLL_MVAL_": "Market Value Collateral",
+            "CPTY_LGD_COLL_ADJ_MKT_": "Collateral Adjustment",
+            "CPTY_LGD_COLL_3RD_REQ_MET_": "3rd Party Requirement",
+            "CPTY_LGD_COLL_INSOLV_FLG_": "Collataral Insolvency",
+            "CPTY_LGD_COLL_SIMPL_": "Simplified Collateral",
+            "CPTY_LGD_POOL_NAME_": "Pool Name",
+            "CPTY_LGD_POOL_TYPE_": "Pool Type",
+            "CPTY_LGD_POOL_S2_SCOPE_": "Pool SII Scope",
+            "CPTY_LGD_POOL_EOF_": "Pool EOF",
+            "CPTY_LGD_POOL_C_SHARE_RISK_": "Pool SoR",
+            "CPTY_LGD_POOL_U_SHARE_RISK_": "Pool USoR",
+            "CPTY_LGD_POOL_COLL_FLG_": "Pool >= 60% Collateral",
+            "CPTY_LGD_POOL_CONTR_RM_": "Pool RM Contribution"
         })
+
         
         # Clean and process records
         df = df.dropna(how='all', subset=['Counterparty', 'Type'])
@@ -663,7 +692,7 @@ def calculate_cpty_type1(input_file: str, output_folder: str) -> Tuple[pd.DataFr
         logger.info("Creating aggregation tree")
         cpd_aggregation_tree_enriched = transform_to_aggregation_tree(aggregated_sne)
         
-        results = (df, aggregated_sne, v_inter_table, V_Inter, V_Intra, sigma, cpd_aggregation_tree_enriched)
+        #results = (df, aggregated_sne, v_inter_table, V_Inter, V_Intra, sigma, cpd_aggregation_tree_enriched)
         
 
 
@@ -678,10 +707,10 @@ def calculate_cpty_type1(input_file: str, output_folder: str) -> Tuple[pd.DataFr
 
 if __name__ == "__main__":
     input_file = "/workspaces/SolvMate/input/04.12_SAS_Input_CDR.xlsb"
-    output_folder = "/workspaces/SolvMate/outputs"
+    data_id_enriched = run_Import(input_file)
     
     try:
-        cpd_aggregation_tree_enriched = calculate_cpty_type1(input_file, output_folder)
+        cpd_aggregation_tree_enriched = calculate_cpty_type1(data_id_enriched)
         
     except Exception as e:
         logger.error(f"Failed to complete calculations: {str(e)}")

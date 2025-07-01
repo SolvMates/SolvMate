@@ -220,9 +220,15 @@ def load_importdata(
         )
 
         data_id_table = pd.DataFrame(response.data)
+        if "TABLE_ID" not in data_id_table.columns:
+            data_id_table["TABLE_ID"] = pd.NA
         if data_id_table.empty:
             logger.warning(f"No configuration found for worksheet: {target_worksheet}")
-            return pd.DataFrame()
+            # Ensure TABLE_ID column exists even if DataFrame is empty
+            data_id_table = pd.DataFrame(columns=list(response.data[0].keys()) if response.data else [])
+            if "TABLE_ID" not in data_id_table.columns:
+                data_id_table["TABLE_ID"] = pd.NA
+            return data_id_table
 
         # Remove duplicates immediately
         data_id_table = data_id_table.drop_duplicates(subset="DATA_ID", keep="first")
@@ -306,6 +312,9 @@ def load_importdata(
                 logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
                 continue
 
+        # After all processing, ensure TABLE_ID column exists
+        if "TABLE_ID" not in data_id_table.columns:
+            data_id_table["TABLE_ID"] = pd.NA
         return data_id_table
 
     except Exception as e:
