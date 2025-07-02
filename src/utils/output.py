@@ -3,9 +3,9 @@ from pathlib import Path
 from supabase import create_client, Client
 import pandas as pd
 from openpyxl import load_workbook
-from utils.input import run_Import
+from .input import run_Import
 from dotenv import load_dotenv
-from utils.get_Value import get_value
+from .get_Value import get_value
 import numpy as np
 from datetime import datetime, timezone
 

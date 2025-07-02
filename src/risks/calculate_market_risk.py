@@ -1,9 +1,8 @@
-from utils import aggregation_tree
 import pandas as pd
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import input
+from src.utils import input, aggregation_tree
 
 #MARKET_INT
 def calculate_interest_rate_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:
@@ -20,16 +19,32 @@ def calculate_interest_rate_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame
     aggregation_tree_market_ir_enriched = aggregation_tree.aggregate_tree(aggregation_tree_market_ir, data_id_enriched, "MARKET_INT")
     
     # For the output liabilities subordinated loans are added to liabilities w/o sub loans
+
     sub_loan_value = data_id_enriched.loc[data_id_enriched['DATA_ID'] == 'MKT_INT_SUB_LOAN_L_BC', 'VALUE'].sum()
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_L_BC', 'VALUE'] += sub_loan_value
+    mask = aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_L_BC'
+    aggregation_tree_market_ir_enriched.loc[mask, 'VALUE'] = (
+        pd.to_numeric(aggregation_tree_market_ir_enriched.loc[mask, 'VALUE'], errors='coerce').fillna(0) + sub_loan_value
+    )
 
     sub_loan_dn_value = data_id_enriched.loc[data_id_enriched['DATA_ID'] == 'MKT_INT_SUB_LOAN_DN_L_SH_N', 'VALUE'].sum()
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_N', 'VALUE'] += sub_loan_dn_value
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_G', 'VALUE'] += sub_loan_dn_value
+    mask_dn_n = aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_N'
+    aggregation_tree_market_ir_enriched.loc[mask_dn_n, 'VALUE'] = (
+        pd.to_numeric(aggregation_tree_market_ir_enriched.loc[mask_dn_n, 'VALUE'], errors='coerce').fillna(0) + sub_loan_dn_value
+    )
+    mask_dn_g = aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_DN_L_SH_G'
+    aggregation_tree_market_ir_enriched.loc[mask_dn_g, 'VALUE'] = (
+        pd.to_numeric(aggregation_tree_market_ir_enriched.loc[mask_dn_g, 'VALUE'], errors='coerce').fillna(0) + sub_loan_dn_value
+    )
 
     sub_loan_up_value = data_id_enriched.loc[data_id_enriched['DATA_ID'] == 'MKT_INT_SUB_LOAN_UP_L_SH_N', 'VALUE'].sum()
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_N', 'VALUE'] += sub_loan_up_value
-    aggregation_tree_market_ir_enriched.loc[aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_G', 'VALUE'] += sub_loan_up_value
+    mask_up_n = aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_N'
+    aggregation_tree_market_ir_enriched.loc[mask_up_n, 'VALUE'] = (
+        pd.to_numeric(aggregation_tree_market_ir_enriched.loc[mask_up_n, 'VALUE'], errors='coerce').fillna(0) + sub_loan_up_value
+    )
+    mask_up_g = aggregation_tree_market_ir_enriched['NODE_ID'] == 'MKT_INT_UP_L_SH_G'
+    aggregation_tree_market_ir_enriched.loc[mask_up_g, 'VALUE'] = (
+        pd.to_numeric(aggregation_tree_market_ir_enriched.loc[mask_up_g, 'VALUE'], errors='coerce').fillna(0) + sub_loan_up_value
+    )
 
     return aggregation_tree_market_ir_enriched
 

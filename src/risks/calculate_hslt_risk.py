@@ -3,7 +3,7 @@ import pandas as pd
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import input
+from src.utils import input
 
 # HSLT MORTALITY RISK
 def calculate_hslt_mortality_risk(data_id_enriched: pd.DataFrame) -> pd.DataFrame:

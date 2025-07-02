@@ -421,6 +421,8 @@ def calculate_pool_metrics(df: pd.DataFrame, lgd_factors_df: pd.DataFrame) -> pd
         raise ValueError(f"Missing required columns for pool calculation: {missing_cols}")
     
     # Calculate intermediary metrics
+    df['Pool EOF'] = pd.to_numeric(df['Pool EOF'], errors='coerce')
+    df['Pool SII Ratio'] = pd.to_numeric(df['Pool SII Ratio'], errors='coerce')
     df['eof_pool_ratio'] = df['Pool EOF'] / df['Pool SII Ratio']
     df['sor_pool_ratio'] = df['Pool SoR'] * df['Pool SII Ratio']
     

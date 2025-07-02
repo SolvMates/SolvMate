@@ -1,9 +1,8 @@
-from utils import aggregation_tree
 import pandas as pd
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import input
+from src.utils import input, aggregation_tree
 
 
 # LIFE MORTALITY RISK
