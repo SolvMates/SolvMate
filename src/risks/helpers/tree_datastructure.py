@@ -17,7 +17,9 @@ class AggregationTreeNode:
     # Added children, as they are easily computable based on the parents
     children: Optional[List["AggregationTreeNode"]] = field(default_factory=list)
     value: Optional[float] = None
+
     input_data: Optional[Any] = None
+    # Below define any addional fields you want to include
 
 
 @dataclass
