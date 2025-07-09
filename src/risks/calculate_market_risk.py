@@ -2,9 +2,10 @@ import pandas as pd
 import sys
 import os
 
+from src.utils.input_interface import SupabaseDataImporter
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils.aggregation_tree import AggregationTree
-from utils import input
 
 
 # MARKET_INT
@@ -180,8 +181,9 @@ def calculate_market_risk_all_subrisks(input_file: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Aggregated market risk results
     """
-    # Load input data
-    data_id_enriched_market = input.run_Import(input_file, ["MarketR"])
+    # Load input
+    supabase_data_importer = SupabaseDataImporter()
+    data_id_enriched_market = supabase_data_importer.run_import(input_file, ["MarketR"])
 
     # Calculate individual market subrisks
     aggregation_tree_market_ir_enriched = calculate_interest_rate_risk(

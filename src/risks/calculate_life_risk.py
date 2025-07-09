@@ -5,13 +5,13 @@ from src.risks.calculate_risk import (
     SpreadRiskCalculator,
     TypicalRiskCalculator,
 )
+from src.utils.input_interface import SupabaseDataImporter
 from utils import aggregation_tree
 import pandas as pd
 import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from utils import input
 
 
 class LifeRiskCalculator:
@@ -30,7 +30,10 @@ class LifeRiskCalculator:
             pd.DataFrame: Aggregated life risk results
         """
         # Load input data
-        data_id_enriched_life = input.run_Import(input_file, ["LnH SLT UW"])
+        supabase_data_importer = SupabaseDataImporter()
+        data_id_enriched_life = supabase_data_importer.run_import(
+            input_file, ["LnH SLT UW"]
+        )
         life_risks_list = [
             "LIFE_MOR",
             "LIFE_LON",

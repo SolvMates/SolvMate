@@ -79,6 +79,18 @@ class InterestRateRiskCalculator(CalculateRiskInterface):
         )
 
         # For the output liabilities subordinated loans are added to liabilities w/o sub loans
+        result_df = self._add_output_liabilities_subordinated_loan(
+            aggregation_tree_market_ir_enriched, data_id_enriched
+        )
+
+        return result_df
+
+    def _add_output_liabilities_subordinated_loan(
+        self,
+        aggregation_tree_market_ir_enriched: pd.DataFrame,
+        data_id_enriched: pd.DataFrame,
+    ) -> pd.DataFrame:
+
         sub_loan_value = data_id_enriched.loc[
             data_id_enriched["DATA_ID"] == "MKT_INT_SUB_LOAN_L_BC", "VALUE"
         ].sum()

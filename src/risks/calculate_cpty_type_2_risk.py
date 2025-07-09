@@ -1,16 +1,23 @@
 import sys
+from typing import List
 import pandas as pd
 import sys
 import os
+from src.risks.calculate_risk import CalculateRiskInterface
 from src.risks.helpers.constants import (
     ColumnNameFinalResultCptyType2Risk,
     ColumnRenamingDictionaryCptyType2Risk,
 )
-from src.utils import input
+from src.utils.input_interface import SupabaseDataImporter
 
 
-class CptyType2Calculator:
-    def calculate_cpty_type2(self, data_id_enriched_cdr: pd.DataFrame) -> pd.DataFrame:
+class CptyType2Calculator(CalculateRiskInterface):
+    def applies_to(self) -> List[str]:
+        return ["CPTY_TYPE2"]
+
+    def calculate_risk(
+        self, data_id_enriched_cdr: pd.DataFrame, risk_type: str
+    ) -> pd.DataFrame:
         """
         Create DataFrame with results in required aggregation_tree_enriched format.
 
@@ -73,7 +80,8 @@ class CptyType2Calculator:
 
     # Read input file to get exposures table for type 2 calculations
     def _read_exposures_table(self, data_id_enriched: pd.DataFrame) -> pd.DataFrame:
-        df = input.get_dataframe(data_id_enriched, "CPTY_TYPE1")
+        supabase_data_importer = SupabaseDataImporter()
+        df = supabase_data_importer.get_dataframe(data_id_enriched, "CPTY_TYPE1")
 
         # Rename columns to match expected names
         df = df.rename(columns=ColumnRenamingDictionaryCptyType2Risk.RENAMING_DICT)
@@ -167,6 +175,9 @@ if __name__ == "__main__":
     sys.path.insert(0, "/workspaces/SolvMate")
     # Example usage
     input_file = "/workspaces/SolvMate/input/04.12_SAS_Input_CDR.xlsb"
-    data_id_enriched = input.run_Import(input_file, ["CDR"])
+    # TODO: This is temporary solution. Data Importer should be injected as a dependncy into CptyType2Calculator
+    # Moreover, it shouldn't even be used in calculator, because the importing is not the part of calculations
+    supabase_data_importer = SupabaseDataImporter()
+    data_id_enriched = supabase_data_importer.run_import(input_file, ["CDR"])
     cpty_type2_calculator = CptyType2Calculator()
-    result_df = cpty_type2_calculator.calculate_cpty_type2(data_id_enriched)
+    result_df = cpty_type2_calculator.calculate_risk(data_id_enriched)

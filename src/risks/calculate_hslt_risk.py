@@ -2,9 +2,10 @@ import pandas as pd
 import sys
 import os
 
+from src.utils.input_interface import SupabaseDataImporter
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils.aggregation_tree import AggregationTree
-from utils import input
 
 
 # HSLT MORTALITY RISK
@@ -221,7 +222,10 @@ def calculate_hslt_risk_all_subrisks(input_file: str) -> pd.DataFrame:
         pd.DataFrame: Aggregated hslt risk results
     """
     # Load input data
-    data_id_enriched_hslt = input.run_Import(input_file, ["LnH SLT UW"])
+    supabase_data_importer = SupabaseDataImporter()
+    data_id_enriched_hslt = supabase_data_importer.run_import(
+        input_file, ["LnH SLT UW"]
+    )
 
     # Calculate individual hslt subrisks
     aggregation_tree_hslt_mor_enriched = calculate_hslt_mortality_risk(
