@@ -14,6 +14,7 @@ dependencies = [
     "dash-leaflet==1.0.15",
     "dash-mantine-components==0.15.3",
     "dash-table==5.0.0",
+    "dataclasses>=0.8",
     "dependency-injector>=4.48.1",
     "jupyter>=1.1.1",
     "numpy>=2.3.1",

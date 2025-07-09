@@ -1,5 +1,6 @@
 from dependency_injector import containers, providers
 from dependency_injector.wiring import inject, Provide
+
 from src.risks.calculate_life_risk import LifeRiskCalculator
 from src.risks.calculate_risk import (
     InterestRateRiskCalculator,
@@ -8,9 +9,27 @@ from src.risks.calculate_risk import (
     SpreadRiskCalculator,
     TypicalRiskCalculator,
 )
+from src.risks.helpers.input_file_reader_interface import (
+    CsvReader,
+    ExcelReader,
+    FilePathReader,
+    FileReaderFactory,
+)
 
 
 class Container(containers.DeclarativeContainer):
+
+    # Initialize local file readers - CSV and Excel
+    csvReader = providers.Factory(CsvReader)
+    excelReader = providers.Factory(ExcelReader)
+
+    fileReaderFactory = providers.Factory(
+        FileReaderFactory, readers=[csvReader(), excelReader()]
+    )
+    filePathReader = providers.Factory(FilePathReader, factory=fileReaderFactory)
+
+    # Initialize all calculators
+
     typical_risk_calculator = providers.Factory(TypicalRiskCalculator)
     interest_rate_risk_calculator = providers.Factory(InterestRateRiskCalculator)
     spread_risk_calculator = providers.Factory(SpreadRiskCalculator)
