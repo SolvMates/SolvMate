@@ -4,7 +4,7 @@ from dependency_injector import containers, providers
 from dependency_injector.wiring import inject, Provide
 from typing import List
 
-from utils import aggregation_tree
+from src.utils.aggregation_tree import AggregationTree
 
 
 class CalculateRiskInterface(ABC):
@@ -48,6 +48,7 @@ class TypicalRiskCalculator(CalculateRiskInterface):
         self, data_id_enriched: pd.DataFrame, risk_type: str
     ) -> pd.DataFrame:
         # Read aggregation tree for life risk
+        aggregation_tree = AggregationTree()
         aggregation_tree = aggregation_tree.read_aggregation_tree(risk_type)
 
         # Aggregate the tree with the enriched data
@@ -69,6 +70,7 @@ class InterestRateRiskCalculator(CalculateRiskInterface):
         self, data_id_enriched: pd.DataFrame, risk_type: str
     ) -> pd.DataFrame:
         # Read aggregation tree for interest rate risk
+        aggregation_tree = AggregationTree()
         aggregation_tree_market_ir = aggregation_tree.read_aggregation_tree(risk_type)
 
         # Aggregate the tree with the enriched data
@@ -122,6 +124,7 @@ class SpreadRiskCalculator(CalculateRiskInterface):
         self, data_id_enriched: pd.DataFrame, risk_type: str
     ) -> pd.DataFrame:
         # Read aggregation tree for spread risk
+        aggregation_tree = AggregationTree()
         aggregation_tree_market_spr = aggregation_tree.read_aggregation_tree(risk_type)
 
         # Aggregate the tree with the enriched data
