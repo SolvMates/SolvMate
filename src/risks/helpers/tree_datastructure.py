@@ -45,7 +45,6 @@ class AggregationTree:
         for index, row in input_dataframe.iterrows():
             row_dict = row.to_dict()
             parent_id = row_dict.get("PARENT_NODE_ID")
-            self.nodes
             current_node = next(
                 node for node in self.nodes if node.risk_name == row_dict["NODE_ID"]
             )
