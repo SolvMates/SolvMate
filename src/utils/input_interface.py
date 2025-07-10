@@ -93,26 +93,27 @@ import logging
 from typing import List, Union, Dict, Optional, Any, Tuple
 
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-load_dotenv()
-
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError(
-        "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
-    )
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
 class SupabaseDataImporter:
+    def __init__(self):
+        # Setup logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+        self.logger = logging.getLogger(__name__)
+
+        load_dotenv()
+
+        SUPABASE_URL = os.environ.get("SUPABASE_URL")
+        SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
+            )
+
+        self.supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
     def run_import(
         self,
         input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",
@@ -227,7 +228,7 @@ class SupabaseDataImporter:
             col = int(coord[c_index + 1 :])
             return [[row, col]]
         except (ValueError, IndexError) as e:
-            logger.error(f"Invalid coordinate format: {coord}")
+            self.logger.error(f"Invalid coordinate format: {coord}")
             raise ValueError(f"Invalid coordinate format: {coord}") from e
 
     def _get_value_from_df(self, df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
@@ -255,7 +256,7 @@ class SupabaseDataImporter:
             return None
 
         except Exception as e:
-            logger.error(f"Error getting value from DataFrame: {str(e)}")
+            self.logger.error(f"Error getting value from DataFrame: {str(e)}")
             return None
 
     def _convert_excel_range_to_list(self, coord_range: str) -> List[List[int]]:
@@ -286,7 +287,7 @@ class SupabaseDataImporter:
             return coordinates
 
         except Exception as e:
-            logger.error(f"Error converting range to coordinates: {str(e)}")
+            self.logger.error(f"Error converting range to coordinates: {str(e)}")
             raise
 
     def _load_importdata(
@@ -313,7 +314,7 @@ class SupabaseDataImporter:
         try:
             # Fetch all data at once
             response = (
-                supabase.table("data_id")
+                self.supabase.table("data_id")
                 .select("*")
                 .eq("WORKSHEET", target_worksheet)
                 .execute()
@@ -323,7 +324,7 @@ class SupabaseDataImporter:
             if "TABLE_ID" not in data_id_table.columns:
                 data_id_table["TABLE_ID"] = pd.NA
             if data_id_table.empty:
-                logger.warning(
+                self.logger.warning(
                     f"No configuration found for worksheet: {target_worksheet}"
                 )
                 # Ensure TABLE_ID column exists even if DataFrame is empty
@@ -358,7 +359,7 @@ class SupabaseDataImporter:
                         f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported."
                     )
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}"
                 )
                 raise
@@ -441,7 +442,9 @@ class SupabaseDataImporter:
                             data_id_table.drop(idx, inplace=True)
 
                 except Exception as e:
-                    logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
+                    self.logger.error(
+                        f"Error processing {data_id} at {coord}: {str(e)}"
+                    )
                     continue
 
             # After all processing, ensure TABLE_ID column exists
@@ -450,7 +453,7 @@ class SupabaseDataImporter:
             return data_id_table
 
         except Exception as e:
-            logger.error(f"Error in load_importdata: {str(e)}")
+            self.logger.error(f"Error in load_importdata: {str(e)}")
             raise
 
 

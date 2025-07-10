@@ -6,7 +6,6 @@ from src.risks.calculate_risk import (
     TypicalRiskCalculator,
 )
 from src.utils.input_interface import SupabaseDataImporter
-from utils import aggregation_tree
 import pandas as pd
 import sys
 import os

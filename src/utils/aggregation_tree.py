@@ -4,13 +4,15 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # Initialize Supabase client
-load_dotenv()
-supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
-)
 
 
 class AggregationTree:
+    def __init__(self):
+        load_dotenv()
+        self.supabase: Client = create_client(
+            os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
+        )
+
     def aggregate_tree(self, aggregation_tree, data_id_enriched, aggregation_tree_id):
         # Step 1: Filter the aggregation tree for the specified aggregation_tree_id
         filtered_tree = aggregation_tree[
@@ -203,7 +205,7 @@ class AggregationTree:
             pd.DataFrame: Aggregation tree data
         """
         response = (
-            supabase.table(
+            self.supabase.table(
                 "aggregation_tree"
             )  # Tree only set up for market risk as of now
             .select("*")

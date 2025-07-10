@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, Optional, Any, List
 from dependency_injector import containers, providers
 from dependency_injector.wiring import inject, Provide
@@ -64,8 +65,10 @@ class AggregationTree:
 
 @inject
 def main(filePathReader: FilePathReader = Provide[Container.filePathReader]):
+    current_file = Path(__file__).resolve()
+    aggregation_tree_input_path = current_file.parent / "aggregation_tree.xlsx"
     tree_input_dataframe = filePathReader.read_file_path(
-        r"D:\python\SolvMate\src\risks\helpers\aggregation_tree.xlsx"
+        str(aggregation_tree_input_path)
     )
     tree_input_dataframe.columns = [
         col.strip().upper() for col in tree_input_dataframe.columns
