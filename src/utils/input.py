@@ -157,7 +157,7 @@ def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
         return None
 
 
-def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
+def convert_excel_range_to_list(coord_range: str, limit = 1000000) -> List[List[int]]:
     """
     Convert Excel-style range to list of coordinates.
 
@@ -175,11 +175,13 @@ def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
         start_coord = convert_coord_to_list(parts[0])[0]
         end_coord = convert_coord_to_list(parts[1])[0]
         step = int(parts[2]) if len(parts) > 2 else 1
-
+        end = end_coord[1] + 1
+        if end > limit :
+            end = limit
         coordinates = [
             [row, col]
             for row in range(start_coord[0], end_coord[0] + 1, step)
-            for col in range(start_coord[1], end_coord[1] + 1)
+            for col in range(start_coord[1], end)
         ]
 
         return coordinates
@@ -190,7 +192,7 @@ def convert_excel_range_to_list(coord_range: str) -> List[List[int]]:
 
 
 def load_importdata(
-    input_path: Union[str, Path], target_worksheet: Optional[str] = None
+    input_path: Union[str, Path], target_worksheet: Optional[str] = None, counterparty_count : int = 200,leave_out_simp : bool = False
 ) -> pd.DataFrame:
     """
     Load and process data from an Excel file based on configuration from Supabase.
@@ -212,16 +214,29 @@ def load_importdata(
 
     try:
         # Fetch all data at once
-        response = (
-            supabase.table("data_id")
-            .select("*")
-            .eq("WORKSHEET", target_worksheet)
-            .execute()
-        )
+        if leave_out_simp == True:
+            response = (
+                supabase.table("data_id")
+                .select("*")
+                .eq("WORKSHEET", target_worksheet)
+                .neq("MODULE" ,"Counterparty Simplified")
+                .execute()
+            )
+        else:    
+            response = (
+                supabase.table("data_id")
+                    .select("*")
+                    .eq(
+                        "WORKSHEET", target_worksheet)
+                     .execute()
+            )
 
         data_id_table = pd.DataFrame(response.data)
         if "TABLE_ID" not in data_id_table.columns:
             data_id_table["TABLE_ID"] = pd.NA
+        if "RM_ID" not in data_id_table.columns:
+            data_id_table["RM_ID"] = pd.NA
+        
         if data_id_table.empty:
             logger.warning(f"No configuration found for worksheet: {target_worksheet}")
             # Ensure TABLE_ID column exists even if DataFrame is empty
@@ -256,12 +271,15 @@ def load_importdata(
 
         # Create a fast lookup dictionary for values
         value_map: Dict[Tuple[int, int], Any] = {}
-        for row_idx in range(len(df)):
-            for col_idx in range(len(df.columns)):
+        len_col = range(len(df.columns))
+        if target_worksheet == "CDR - SCR hyp":
+            len_col = range(13+ counterparty_count)
+      
+        for col_idx in len_col:
+            for row_idx in range(len(df)):
                 val = df.iloc[row_idx, col_idx]
                 if pd.notna(val):
-                    value_map[(row_idx + 2, col_idx + 1)] = val
-
+                    value_map[(row_idx + 2, col_idx + 1)] = val           
         # Process data IDs efficiently
         for idx, row in data_id_table.iterrows():
             data_id = str(row["DATA_ID"])
@@ -270,12 +288,14 @@ def load_importdata(
             try:
                 if data_id.endswith("*"):
                     # Handle range of values
-                    coord_list = convert_excel_range_to_list(coord)
-
+                    coord_list = convert_excel_range_to_list(coord,counterparty_count)
+                    
                     i = 0
                     for c in coord_list:
                         val = value_map.get((c[0], c[1]))
+                        
                         new_data_id = data_id.rstrip("*") + str(i)
+                        
                         new_row = row.copy()
                         if new_row["TYPE"] == 'C' :
                             new_row["VALUE"] = str(val)
@@ -323,8 +343,7 @@ def load_importdata(
 
             except Exception as e:
                 logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
-                continue
-
+                continue 
         # After all processing, ensure TABLE_ID column exists
         if "TABLE_ID" not in data_id_table.columns:
             data_id_table["TABLE_ID"] = pd.NA
@@ -335,6 +354,49 @@ def load_importdata(
         raise
 
 
+def cpty_hyp(df : pd.DataFrame):
+    response = (
+            supabase.table("map_hyp_scr")
+            .select("*")
+            .execute()
+        )
+
+    mapping_table = pd.DataFrame(response.data)   
+    all_base_case_ids = mapping_table["Data_ID_BC"].tolist()
+    new_rows = []
+    for id in all_base_case_ids:
+        df.loc[df["DATA_ID"] == id , "RM_ID"] = "basecase"
+
+        if mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_simplified"].values[0] != "":
+            data_id_s = mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_simplified"].values[0]
+            if not df.loc[df['DATA_ID'] == data_id_s].empty:
+                new_row = df.loc[df['DATA_ID'] == id].copy()
+                new_row["VALUE"] = df.loc[df['DATA_ID'] == data_id_s, 'VALUE'].values[0]
+                new_row["RM_ID"] = "simplified"
+                new_rows.append(new_row)       
+
+        if mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_detailed"].values[0] != "":
+            data_id_d = mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_detailed"].values[0]
+            stripped_data_id_d = data_id_d.rstrip("*")
+            counterparty_data_ids1 = df[df["DATA_ID"].str.startswith(stripped_data_id_d)]
+            counterparty_data_ids = counterparty_data_ids1[counterparty_data_ids1["DATA_ID"].str.len() <= len(data_id_d)]['DATA_ID'].tolist()
+            for c_id in counterparty_data_ids:
+                 if not c_id.endswith("*"):
+                    new_row = df[df['DATA_ID'] == id].copy()
+                    new_row["VALUE"] = df.loc[df['DATA_ID'] == c_id, 'VALUE'].values[0]
+                    n = len(stripped_data_id_d)
+                    rm_id =df.loc[df["DATA_ID"] == "ERGO_CPD_CPTY_NAME_" + str(int(c_id[n:])), "VALUE"].values[0]
+                    new_row["RM_ID"] = rm_id
+                    new_rows.append(new_row)
+
+    
+    if new_rows != []:
+        new_rows_df = pd.concat(new_rows, ignore_index=True)
+
+        new_df = pd.concat([df, new_rows_df], ignore_index=True)
+    
+    return new_df
+
 def run_Import(
     input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",
     worksheets=[
@@ -343,7 +405,7 @@ def run_Import(
         "ConcR",
         "CurrR",
         "CDR",
-        "CDR - SCR hyp",
+       "CDR - SCR hyp",
         "net Prem CP",
         "LnH SLT UW",
         "Health cat",
@@ -362,19 +424,51 @@ def run_Import(
         raise FileNotFoundError(
             f"Invalid input path: {input_path}. Please provide a valid file path."
         )
-
+    cdr_scr_hyp_wanted = False
     dataframes = []  # Initialize an empty list to store DataFrames
-
+    if "CDR - SCR hyp" in worksheets:
+        worksheets.remove("CDR - SCR hyp")
+        cdr_scr_hyp_wanted = True
     # Process each worksheet
     for worksheet in worksheets:
         data_id_table = load_importdata(
             input_p, worksheet
         )  # Load data for the worksheet
+     
         dataframes.append(data_id_table)  # Append the DataFrame to the list
+        combined_df = pd.concat(dataframes, ignore_index=True)
+        
+    # check how many conterpartys there are 
+    if cdr_scr_hyp_wanted == True:
+
+
+        check = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_EXP_RM_FLG_")]
+        check = check[check["VALUE"] == "yes"]
+        check_list = check["VALUE"].tolist()
+        check2 = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_RM_EFFECT_")]
+        check_list2 = check2["VALUE"].tolist()
+        check3 = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_RM_SIMPL_FLG_")]
+        check_list3 = check3[check3["VALUE"] =="no"]
+        check_list3 = check_list3["VALUE"].tolist()
+        check_list4 = check3[check3["VALUE"]== "yes"]
+        check_list4 = check_list4["VALUE"].tolist()
+        if len(check_list) > len(check_list2):
+            limit = min(len(check_list) - len(check_list2),len(check_list3))
+            if check_list4 != []:
+                data_id_table = load_importdata(
+                        input_p,"CDR - SCR hyp",limit 
+                )
+            else:
+                data_id_table= load_importdata(
+                        input_p,"CDR - SCR hyp",limit,True
+                )
+            
+            combined_df = pd.concat([combined_df,data_id_table], ignore_index=True)
 
     # Combine all DataFrames into a single DataFrame
-    combined_df = pd.concat(dataframes, ignore_index=True)
-    return combined_df  # Return the combined DataFrame
+    
+    
+    return combined_df # Return the combined DataFrame
 
 
 def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame:
@@ -433,12 +527,18 @@ def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame
 
 
 if __name__ == "__main__":
-    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.01_SAS_Input_CDR.xls")
-    testvar = get_dataframe(goal_dataframe, "CPTY_TYPE1")
-    # create excel file
+
+   
+    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.32_SAS_Input_CDR.xls")
+    final_df = cpty_hyp(goal_dataframe) 
+
+
+
+    #testvar = get_dataframe(goal_dataframe, "CPTY_TYPE1")
+    #create excel file
     output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        # Write the goal_dataframe to the specified sheet
+        #Write the goal_dataframe to the specified sheet
         goal_dataframe.to_excel(
             writer, sheet_name="Goal DataFrame", index=False, header=True
         )
