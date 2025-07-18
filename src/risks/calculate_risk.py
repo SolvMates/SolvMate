@@ -49,11 +49,11 @@ class TypicalRiskCalculator(CalculateRiskInterface):
     ) -> pd.DataFrame:
         # Read aggregation tree for life risk
         aggregation_tree = AggregationTree()
-        aggregation_tree = aggregation_tree.read_aggregation_tree(risk_type)
+        aggregation_tree_df = aggregation_tree.read_aggregation_tree(risk_type)
 
         # Aggregate the tree with the enriched data
         aggregation_tree_enriched = aggregation_tree.aggregate_tree(
-            aggregation_tree, data_id_enriched, risk_type
+            aggregation_tree_df, data_id_enriched, risk_type
         )
 
         return aggregation_tree_enriched
