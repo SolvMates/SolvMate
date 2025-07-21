@@ -27,3 +27,9 @@ dependencies = [
     "supabase>=2.16.0",
     "xlrd>=2.0.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
+]
