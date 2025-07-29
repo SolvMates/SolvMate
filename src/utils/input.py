@@ -266,6 +266,7 @@ def load_importdata(
         for idx, row in data_id_table.iterrows():
             data_id = str(row["DATA_ID"])
             coord = str(row["RC_CODE"])
+            default_list_value = str(row["DEFAULT_LIST_VALUE"]) or np.nan
 
             try:
                 if data_id.endswith("*"):
@@ -274,7 +275,7 @@ def load_importdata(
 
                     i = 0
                     for c in coord_list:
-                        val = value_map.get((c[0], c[1]))
+                        val = value_map.get((c[0], c[1])) or default_list_value
                         new_data_id = data_id.rstrip("*") + str(i)
                         new_row = row.copy()
                         if new_row["TYPE"] == 'C' :
