@@ -425,12 +425,11 @@ class CurRisk:
 
 
 if __name__ == "__main__":
-    input_file = Path("/python/SolvMate/input/02.13_SAS_Input_CurrR.xls")
+    input_file = Path("/python/SolvMate/input/02.10_SAS_Input_CurrR.xls")
 
     curRisk = CurRisk()
     curRisk.calculate(str(input_file))
     output_path = Path.cwd() / "outputs"
 
-    curRisk.output.to_excel(str(output_path / "Output_CurrR.xlsx"), index=False)
-    curRisk.aggOutput.to_excel(str(output_path / "AggOutput_CurrR.xlsx"), index=False)
-    curRisk.aggOutput
+    curRisk.output.to_excel(str(output_path / "Output_CurrR_2_10.xlsx"), index=False)
+    curRisk.aggOutput.to_excel(str(output_path / "AggOutput_CurrR_2_10.xlsx"), index=False)

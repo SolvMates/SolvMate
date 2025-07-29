@@ -225,9 +225,7 @@ def load_importdata(
         if data_id_table.empty:
             logger.warning(f"No configuration found for worksheet: {target_worksheet}")
             # Ensure TABLE_ID column exists even if DataFrame is empty
-            data_id_table = pd.DataFrame(
-                columns=list(response.data[0].keys()) if response.data else []
-            )
+            data_id_table = pd.DataFrame(columns=list(response.data[0].keys()) if response.data else [])
             if "TABLE_ID" not in data_id_table.columns:
                 data_id_table["TABLE_ID"] = pd.NA
             return data_id_table
@@ -279,9 +277,9 @@ def load_importdata(
                         val = value_map.get((c[0], c[1]))
                         new_data_id = data_id.rstrip("*") + str(i)
                         new_row = row.copy()
-                        if new_row["TYPE"] == "C":
+                        if new_row["TYPE"] == 'C' :
                             new_row["VALUE"] = str(val)
-                        elif new_row["TYPE"] == "N" and val is not None:
+                        elif new_row["TYPE"] == 'N' and val is not None:
                             new_row["VALUE"] = float(val)
                         new_row["DATA_ID"] = new_data_id
                         new_row["TABLE_ID"] = 0
@@ -307,26 +305,19 @@ def load_importdata(
                                 logger.warning(
                                     f"Could not convert date value for {data_id}: {val}"
                                 )
-                        if data_id_table.at[idx, "TYPE"] == "C":
+                        if data_id_table.at[idx, "TYPE"] == 'C' :
                             val = str(val)
-                        elif data_id_table.at[idx, "TYPE"] == "N":
+                        elif data_id_table.at[idx, "TYPE"] == 'N':
                             try:
                                 val = float(val)
                             except:
-                                val = val
+                                val = val              
                         data_id_table.at[idx, "VALUE"] = val
-                    elif (
-                        pd.notna(row.get("DEFAULT_LIST_VALUE"))
-                        and row.get("DEFAULT_LIST_VALUE") != ""
-                    ):
-                        if data_id_table.at[idx, "TYPE"] == "C":
-                            data_id_table.at[idx, "VALUE"] = str(
-                                row["DEFAULT_LIST_VALUE"]
-                            )
-                        elif data_id_table.at[idx, "TYPE"] == "N":
-                            data_id_table.at[idx, "VALUE"] = float(
-                                row["DEFAULT_LIST_VALUE"]
-                            )
+                    elif pd.notna(row.get("DEFAULT_LIST_VALUE")) and row.get("DEFAULT_LIST_VALUE") != "":
+                        if data_id_table.at[idx, "TYPE"] == 'C' :
+                            data_id_table.at[idx, "VALUE"] = str(row["DEFAULT_LIST_VALUE"])
+                        elif data_id_table.at[idx, "TYPE"] == 'N' :
+                            data_id_table.at[idx, "VALUE"] = float(row["DEFAULT_LIST_VALUE"])
                     else:
                         data_id_table.drop(idx, inplace=True)
 
@@ -345,7 +336,7 @@ def load_importdata(
 
 
 def run_Import(
-    input_path: str = "/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",
+    input_path="/workspaces/SolvMate/input/02.01_SAS_Input_MarketR.xls",
     worksheets=[
         "Basic input",
         "MarketR",
@@ -387,12 +378,12 @@ def run_Import(
 
 
 def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame:
-    # Get all the requiered data_id ranges and store them in a list.
+    #Get all the requiered data_id ranges and store them in a list.
     column_data_ids = data_id_enriched.loc[
         data_id_enriched["TABLE_ID"] == table_id, "DATA_ID"
     ].tolist()
     help_list = []
-    # Get every data_id of each range and store them in a list and store this list in a list.
+    #Get every data_id of each range and store them in a list and store this list in a list.
     for column_id in column_data_ids:
         column_id = column_id.rstrip("*")
         filtered_data_ids = data_id_enriched[
@@ -402,7 +393,7 @@ def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame
         help_list.append(data_id_list)
         biggest_element = 0
         index = 0
-    # Look for the biggest data_id in each list and save the index of the biggest element.
+    #Look for the biggest data_id in each list and save the index of the biggest element.
     for sublist in help_list:
 
         current_data_id = column_data_ids[index]
@@ -414,14 +405,14 @@ def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame
             if last_element > biggest_element:
                 biggest_element = last_element
         index = index + 1
-    # Create the column names with the name of the data_id ranges and add the column INDEX.
+    #Create the column names with the name of the data_id ranges and add the column INDEX.
     rows = []
     column_names = []
     for id_names in column_data_ids:
         column_names.append(id_names.rstrip("*"))
     columns = ["INDEX"]
     columns.extend(column_names)
-    # Create each row of the dataframe in a loop, in each iteration loop over every data_id_range list to get the right value of the data_id.
+    #Create each row of the dataframe in a loop, in each iteration loop over every data_id_range list to get the right value of the data_id.
     for row_i in range(biggest_element + 1):
         row = []
         row.append(row_i)
