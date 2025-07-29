@@ -15,7 +15,6 @@ dependencies = [
     "dash-mantine-components==0.15.3",
     "dash-table==5.0.0",
     "dependency-injector>=4.48.1",
-    "jupyter>=1.1.1",
     "numpy>=2.3.1",
     "openpyxl>=3.1.5",
     "pandas>=2.3.0",
@@ -30,4 +29,7 @@ dependencies = [
 dev = [
     "pytest>=8.4.1",
     "pytest-mock>=3.14.1",
+]
+local-dev = [
+    "jupyter>=1.1.1",
 ]
