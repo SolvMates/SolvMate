@@ -10,12 +10,6 @@ def create_group_cards():
     # Define category metadata with consistent order and grouping
     category_metadata = {
         "End-to-End": ["Description", "Run test"],
-        "Market Risk": ["Market (w/o ConcR & Curr)", "CurrR", "ConcR"],
-        "Counterparty Default": [
-            "Type 1",
-            "Type 2",
-            "Risk Mitigation Calculation",
-        ],
         "Database configuration": ["Output mapping"],
     }
 
@@ -86,98 +80,39 @@ def create_group_cards():
 def layout():
     return dbc.Container(
         [
-            # Add more top padding and spacing
             html.Div(
                 [
                     html.H1(
                         ["SolvMate - Testing Dashboard"], className="display-3 mb-4"
                     ),
-                    
+                    html.Div(
+                        [
+                            html.P(
+                                "Welcome to SolvMate! This platform helps you test, validate, and manage your data workflows for regulatory and business reporting. SolvMate streamlines the process of running end-to-end calculations, mapping outputs, and configuring database connections—all in one place.",
+                                className="lead mt-3 mb-2",
+                            ),
+                        ],
+                        className="d-flex align-items-center mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.B("Scripts Tab: "),
+                            "Access the main testing and configuration scripts here. The End-to-End group lets you run full workflow tests and view descriptions. The Database configuration group allows you to map outputs and manage database-related settings.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.B("Links Tab: "),
+                            "Find helpful resources and documentation relevant to SolvMate and its ecosystem.",
+                        ],
+                        className="mb-4",
+                    ),
                 ],
                 className="py-3",
-            ),  # Added vertical padding to the header section
+            ),
             html.H3("Scripts", className="mb-4 pb-2 border-bottom"),
             create_group_cards(),
-            html.H3("Links", className="mb-4 pb-2 border-bottom mt-5"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        [
-                            html.H4("Official documentation", className="h5 mb-3"),
-                            html.Ul(
-                                [
-                                    html.Li(
-                                        html.A(
-                                            "AWS",
-                                            href="https://docs.databricks.com/en/dev-tools/databricks-apps/index.html",
-                                            target="_blank",
-                                        )
-                                    ),
-                                    html.Li(
-                                        html.A(
-                                            "Azure",
-                                            href="https://learn.microsoft.com/azure/databricks/dev-tools/databricks-apps/",
-                                            target="_blank",
-                                        )
-                                    ),
-                                    html.Li(
-                                        html.A(
-                                            "Python SDK",
-                                            href="https://databricks-sdk-py.readthedocs.io/en/latest/",
-                                            target="_blank",
-                                        )
-                                    ),
-                                ],
-                                className="list-unstyled",
-                            ),
-                        ],
-                        md=4,
-                    ),
-                    dbc.Col(
-                        [
-                            html.H4("Code samples", className="h5 mb-3"),
-                            html.Ul(
-                                [
-                                    html.Li(
-                                        html.A(
-                                            "Databricks Apps Templates",
-                                            href="https://github.com/databricks/databricks-apps",
-                                            target="_blank",
-                                        )
-                                    )
-                                ],
-                                className="list-unstyled",
-                            ),
-                        ],
-                        md=4,
-                    ),
-                    dbc.Col(
-                        [
-                            html.H4("Blog posts", className="h5 mb-3"),
-                            html.Ul(
-                                [
-                                    html.Li(
-                                        html.A(
-                                            "End-to-end RAG application with source retriveal on Databricks Platform",
-                                            href="https://www.linkedin.com/pulse/end-to-end-rag-application-source-retriveal-platform-ivan-trusov-znvqf/",
-                                            target="_blank",
-                                        )
-                                    ),
-                                    html.Li(
-                                        html.A(
-                                            "Building Data Applications with Databricks Apps",
-                                            href="https://www.linkedin.com/pulse/building-data-applications-databricks-apps-ivan-trusov-6pjwf/",
-                                            target="_blank",
-                                        )
-                                    ),
-                                ],
-                                className="list-unstyled",
-                            ),
-                        ],
-                        md=4,
-                    ),
-                ]
-            ),
         ],
         fluid=True,
         className="py-4",

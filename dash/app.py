@@ -29,17 +29,8 @@ def create_sidebar():
     # Define category and page order
     sidebar_structure = {
         'End-to-End': [
-            'End-to-End test'
-        ],
-        'Market Risk': [
-            'Market (w/o ConcR & Curr)',
-            'CurrR',
-            'ConcR'
-        ],
-        'Counterparty Default': [
-            'Type 1',
-            'Type 2',
-            'Counterparty Hyp'
+            'Start calculation',
+            'Run Status Table'
         ],
         'Database configuration': [  
             'Output mapping',
@@ -88,9 +79,9 @@ app.layout = html.Div([
             # Sidebar
             dbc.Col([
                 html.Div([
-                    html.Img(src="assets/logo.svg", className="logo ms-4", style={
-                        'width': '30px',
-                        'margin-top': '20px'
+                    html.Img(src="assets/Logo_1.png", className="logo ms-4", style={
+                        'width': '250px',
+                        'margin-top': '50px'
                     }),
                 ], className="sidebar-header"),
                 html.Div(create_sidebar(), className="ps-4")
