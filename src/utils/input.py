@@ -355,6 +355,7 @@ def load_importdata(
 
 
 def cpty_hyp(df : pd.DataFrame):
+    #Loading the mapping data from supabase
     response = (
             supabase.table("map_hyp_scr")
             .select("*")
@@ -364,9 +365,10 @@ def cpty_hyp(df : pd.DataFrame):
     mapping_table = pd.DataFrame(response.data)   
     all_base_case_ids = mapping_table["Data_ID_BC"].tolist()
     new_rows = []
+    #Now loop over every id that potentially have other values in cdr scr hyp 
     for id in all_base_case_ids:
         df.loc[df["DATA_ID"] == id , "RM_ID"] = "basecase"
-
+        # simplefied value
         if mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_simplified"].values[0] != "":
             data_id_s = mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_simplified"].values[0]
             if not df.loc[df['DATA_ID'] == data_id_s].empty:
@@ -374,7 +376,7 @@ def cpty_hyp(df : pd.DataFrame):
                 new_row["VALUE"] = df.loc[df['DATA_ID'] == data_id_s, 'VALUE'].values[0]
                 new_row["RM_ID"] = "simplified"
                 new_rows.append(new_row)       
-
+        #value for each counterpary detailed
         if mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_detailed"].values[0] != "":
             data_id_d = mapping_table.loc[mapping_table["Data_ID_BC"] == id, "Data_ID_detailed"].values[0]
             stripped_data_id_d = data_id_d.rstrip("*")
@@ -389,11 +391,13 @@ def cpty_hyp(df : pd.DataFrame):
                     new_row["RM_ID"] = rm_id
                     new_rows.append(new_row)
 
-    
+    #add all the new rows to the dataframe
     if new_rows != []:
         new_rows_df = pd.concat(new_rows, ignore_index=True)
 
         new_df = pd.concat([df, new_rows_df], ignore_index=True)
+    else:
+        new_df = df
     
     return new_df
 
@@ -438,7 +442,7 @@ def run_Import(
         dataframes.append(data_id_table)  # Append the DataFrame to the list
         combined_df = pd.concat(dataframes, ignore_index=True)
         
-    # check how many conterpartys there are 
+    # check how many conterpartys there are and check with the information from CDR if CDR - SCR hyp is needed 
     if cdr_scr_hyp_wanted == True:
 
 
@@ -464,11 +468,12 @@ def run_Import(
                 )
             
             combined_df = pd.concat([combined_df,data_id_table], ignore_index=True)
+        final_df = cpty_hyp(combined_df)
 
     # Combine all DataFrames into a single DataFrame
     
     
-    return combined_df # Return the combined DataFrame
+    return final_df # Return the combined DataFrame
 
 
 def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame:
@@ -529,8 +534,8 @@ def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame
 if __name__ == "__main__":
 
    
-    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.32_SAS_Input_CDR.xls")
-    final_df = cpty_hyp(goal_dataframe) 
+    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.01_SAS_Input_CDR.xls")
+    
 
 
 
