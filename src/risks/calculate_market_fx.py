@@ -238,12 +238,18 @@ class CurRisk:
         ].apply(lambda x: x in self.__currencyShocks.columns)
 
         self.output["RiskFactor"] = 0.0
-        # Copy value from currencyShocks, if ForeignCurrencyPeggedLocalCur True is true
+    
         for idx, row in self.output.iterrows():
             if row["ForeignCurrencyPeggedLocalCur"]:
-                self.output.at[idx, "RiskFactor"] = self.__currencyShocks[
-                    row["ForeignCurrency"]
-                ].iloc[0]
+                columnCur = self.output.at[idx,"ForeignCurrency"]
+                
+                self.output.at[idx, "RiskFactor"] = self.__currrencyShockStd
+                
+                # Iterate through the rows of __currencyShocks to find the matching currency 
+                for idxShocks, rowShocks in self.__currencyShocks.iterrows():
+                    if rowShocks["Currency"] == self.__localCurrency:
+                        self.output.at[idx, "RiskFactor"] = rowShocks[columnCur]
+                        break                 
             else:
                 self.output.at[idx, "RiskFactor"] = self.__currrencyShockStd
 
@@ -425,7 +431,7 @@ class CurRisk:
 
 
 if __name__ == "__main__":
-    input_file = Path("/python/SolvMate/input/02.10_SAS_Input_CurrR.xls")
+    input_file = Path("/workspaces/SolvMate/input/02.10_SAS_Input_CurrR.xls")
 
     curRisk = CurRisk()
     curRisk.calculate(str(input_file))
@@ -433,3 +439,4 @@ if __name__ == "__main__":
 
     curRisk.output.to_excel(str(output_path / "Output_CurrR_2_10.xlsx"), index=False)
     curRisk.aggOutput.to_excel(str(output_path / "AggOutput_CurrR_2_10.xlsx"), index=False)
+    print(curRisk.aggOutput)
