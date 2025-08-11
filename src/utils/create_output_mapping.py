@@ -12,7 +12,7 @@ import re
 # Load environment variables for Supabase credentials
 load_dotenv()
 supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL1"), os.environ.get("SUPABASE_KEY1")
+    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY")
 )
 
 
@@ -45,7 +45,7 @@ def read_excel_cells(file_path: str) -> pd.DataFrame:
     """
     # Create an empty DataFrame for the results
     results = pd.DataFrame(
-        columns=["QRT_ID", "QRT_NAME", "RC_CODE", "CELL_REFERENCE", "DATA_ID", "ID"]
+        columns=["QRT_ID", "QRT_NAME", "RC_CODE", "CELL_REFERENCE", "DATA_ID", "ID", "TYPE"]
     )
 
     # Load Excel file
@@ -79,12 +79,30 @@ def read_excel_cells(file_path: str) -> pd.DataFrame:
                             "CELL_REFERENCE": [cell_position],
                             "DATA_ID": None,
                             "ID": [id],
+                            "TYPE": None,
                         }
                     )
                     results = pd.concat([results, new_row], ignore_index=True)
 
     return results
 
+def find_and_add_type_of_cell(dataframe: pd.DataFrame, file_path: str) -> pd.DataFrame:
+    workbook = load_workbook(Path(file_path))
+    
+  
+    for index, row in dataframe.iterrows():
+        sheet_name = row["QRT_NAME"]
+        cell_reference = row["CELL_REFERENCE"]
+        
+        
+        if sheet_name in workbook.sheetnames:
+            df_sheet = workbook[sheet_name]
+            cell_value = df_sheet[cell_reference].value  
+            if cell_value is None:
+                cell_value = "None"
+            dataframe.at[index, "TYPE"] = cell_value 
+
+    return dataframe
 
 def upsert_data_to_supabase(
     dataframe: pd.DataFrame, table_name: str, unique_column: str
@@ -106,9 +124,9 @@ def upsert_data_to_supabase(
 
         if existing_record.data:
             # Record exists, update it
-            supabase.table(table_name).update(row.to_dict()).eq(
-                unique_column, unique_value
-            ).execute()
+            update_data = row[["QRT_ID", "QRT_NAME", "RC_CODE", "CELL_REFERENCE", "TYPE"]].to_dict()
+            supabase.table(table_name).update(update_data).eq(unique_column, unique_value).execute()
+           
             print(f"Updated record with {unique_column}: {unique_value}")
         else:
             # Record does not exist, insert it
@@ -136,9 +154,13 @@ def create_output_mapping():
 
 if __name__ == "__main__":
     # Script entry point for manual execution
-    goal_dataframe = read_excel_cells(
+    template_dataframe = read_excel_cells(
         file_path="/workspaces/SolvMate/templates/Output_ERGO.xlsx",
     )
+    goal_dataframe = find_and_add_type_of_cell(
+        template_dataframe,
+        file_path="/workspaces/SolvMate/templates/Output_ERGO_Types.xlsx")
+    
     upsert_data_to_supabase(goal_dataframe, "output_mapping", "ID")
     output_path = Path("/workspaces/SolvMate/outputs/Output_Mapping.xlsx")
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
