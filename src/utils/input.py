@@ -81,6 +81,7 @@ Functions:
 
 """
 
+from csv import writer
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -157,7 +158,7 @@ def get_value_from_df(df: pd.DataFrame, coord: Union[str, List[int]]) -> Any:
         return None
 
 
-def convert_excel_range_to_list(coord_range: str, limit = 1000000) -> List[List[int]]:
+def _convert_excel_range_to_list(coord_range: str, limit = 1000000) -> List[List[int]]:
     """
     Convert Excel-style range to list of coordinates.
 
@@ -192,7 +193,10 @@ def convert_excel_range_to_list(coord_range: str, limit = 1000000) -> List[List[
 
 
 def load_importdata(
-    input_path: Union[str, Path], target_worksheet: Optional[str] = None, counterparty_count : int = 200,leave_out_simp : bool = False
+    input_path: Union[str, Path], 
+    target_worksheet: Optional[str] = None, 
+    detailed_RM_count: int = 200, 
+    include_simplified_RM: bool = False
 ) -> pd.DataFrame:
     """
     Load and process data from an Excel file based on configuration from Supabase.
@@ -200,9 +204,15 @@ def load_importdata(
     Args:
         input_path: Path to the input Excel file
         target_worksheet: Name of the worksheet to process
+        detailed_RM_count: Maximum number of detailed risk managers to process
+        include_simplified_risk_managers: Whether to include simplified risk manager data
 
     Returns:
-        DataFrame containing the processed data
+        DataFrame containing the processed data with mapped values from Excel
+    
+    Raises:
+        TypeError: If input_path is not a string or Path object
+        ValueError: If target_worksheet is not specified or file format is unsupported
     """
     if not isinstance(input_path, (str, Path)):
         raise TypeError("input_path must be a string or Path object")
@@ -213,74 +223,35 @@ def load_importdata(
     input_path = Path(input_path) if isinstance(input_path, str) else input_path
 
     try:
-        # Fetch all data at once
-        if leave_out_simp == True:
-            response = (
-                supabase.table("data_id")
-                .select("*")
-                .eq("WORKSHEET", target_worksheet)
-                .neq("MODULE" ,"Counterparty Simplified")
-                .execute()
-            )
-        else:    
-            response = (
-                supabase.table("data_id")
-                    .select("*")
-                    .eq(
-                        "WORKSHEET", target_worksheet)
-                     .execute()
-            )
+        supabase_query = (
+            supabase.table("data_id")
+            .select("*")
+            .eq("WORKSHEET", target_worksheet)
+        )
 
-        data_id_table = pd.DataFrame(response.data)
-        if "TABLE_ID" not in data_id_table.columns:
-            data_id_table["TABLE_ID"] = pd.NA
-        if "RM_ID" not in data_id_table.columns:
-            data_id_table["RM_ID"] = pd.NA
+        if not include_simplified_RM:
+            supabase_query = supabase_query.neq("MODULE", "Counterparty Simplified")
+
+        data_id_table = pd.DataFrame(supabase_query.execute().data)
+        
+        for required_column in ["TABLE_ID", "RM_ID"]:
+            if required_column not in data_id_table.columns:
+                data_id_table[required_column] = pd.NA
         
         if data_id_table.empty:
             logger.warning(f"No configuration found for worksheet: {target_worksheet}")
-            # Ensure TABLE_ID column exists even if DataFrame is empty
-            data_id_table = pd.DataFrame(columns=list(response.data[0].keys()) if response.data else [])
-            if "TABLE_ID" not in data_id_table.columns:
-                data_id_table["TABLE_ID"] = pd.NA
             return data_id_table
 
-        # Remove duplicates immediately
         data_id_table = data_id_table.drop_duplicates(subset="DATA_ID", keep="first")
         data_id_table.insert(1, "VALUE", None)
 
-        # Load Excel data
-        try:
-            if input_path.suffix == ".xlsb":
-                df = pd.read_excel(
-                    input_path, sheet_name=target_worksheet, header=0, engine="pyxlsb"
-                )
-            elif input_path.suffix == ".xls":
-                df = pd.read_excel(
-                    input_path, sheet_name=target_worksheet, header=0, engine="xlrd"
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported."
-                )
-        except Exception as e:
-            logger.error(
-                f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}"
-            )
-            raise
-
-        # Create a fast lookup dictionary for values
-        value_map: Dict[Tuple[int, int], Any] = {}
-        len_col = range(len(df.columns))
-        if target_worksheet == "CDR - SCR hyp":
-            len_col = range(13+ counterparty_count)
-      
-        for col_idx in len_col:
-            for row_idx in range(len(df)):
-                val = df.iloc[row_idx, col_idx]
-                if pd.notna(val):
-                    value_map[(row_idx + 2, col_idx + 1)] = val           
-        # Process data IDs efficiently
+        excel_data = _read_excel_worksheet(input_path, target_worksheet)
+        value_map = _create_value_lookup_map(
+            excel_data, 
+            target_worksheet, 
+            detailed_RM_count
+        )
+        data_id_table_enriched = data_id_table.copy()
         for idx, row in data_id_table.iterrows():
             data_id = str(row["DATA_ID"])
             coord = str(row["RC_CODE"])
@@ -288,24 +259,23 @@ def load_importdata(
             try:
                 if data_id.endswith("*"):
                     # Handle range of values
-                    coord_list = convert_excel_range_to_list(coord,counterparty_count)
-                    
+                    coord_list = _convert_excel_range_to_list(coord, detailed_RM_count)
+
                     i = 0
                     for c in coord_list:
                         val = value_map.get((c[0], c[1]))
-                        
                         new_data_id = data_id.rstrip("*") + str(i)
                         
                         new_row = row.copy()
-                        if new_row["TYPE"] == 'C' :
+                        if new_row["TYPE"] == 'C':
                             new_row["VALUE"] = str(val)
                         elif new_row["TYPE"] == 'N' and val is not None:
                             new_row["VALUE"] = float(val)
                         new_row["DATA_ID"] = new_data_id
-                        new_row["TABLE_ID"] = 0
+                        new_row["TABLE_ID"] = row["TABLE_ID"]
                         if pd.notna(val):
-                            data_id_table = pd.concat(
-                                [data_id_table, pd.DataFrame([new_row])],
+                            data_id_table_enriched = pd.concat(
+                                [data_id_table_enriched, pd.DataFrame([new_row])],
                                 ignore_index=True,
                             )
                         i = i + 1
@@ -316,11 +286,12 @@ def load_importdata(
                     val = value_map.get((coord_list[0], coord_list[1]))
 
                     if pd.notna(val):
-                        if data_id == "INFO_REPORT_DT" and input_path.suffix == ".xlsb":
+                        if data_id == "INFO_REPORT_DT":
                             try:
                                 val = pd.Timestamp("1899-12-30") + pd.Timedelta(
                                     days=int(val)
                                 )
+                                print(f"Converted Reporting Date for {data_id}: {val}")
                             except:
                                 logger.warning(
                                     f"Could not convert date value for {data_id}: {val}"
@@ -332,26 +303,95 @@ def load_importdata(
                                 val = float(val)
                             except:
                                 val = val              
-                        data_id_table.at[idx, "VALUE"] = val
+                        data_id_table_enriched.at[idx, "VALUE"] = val
                     elif pd.notna(row.get("DEFAULT_LIST_VALUE")) and row.get("DEFAULT_LIST_VALUE") != "":
                         if data_id_table.at[idx, "TYPE"] == 'C' :
-                            data_id_table.at[idx, "VALUE"] = str(row["DEFAULT_LIST_VALUE"])
+                            data_id_table_enriched.at[idx, "VALUE"] = str(row["DEFAULT_LIST_VALUE"])
                         elif data_id_table.at[idx, "TYPE"] == 'N' :
-                            data_id_table.at[idx, "VALUE"] = float(row["DEFAULT_LIST_VALUE"])
+                            data_id_table_enriched.at[idx, "VALUE"] = float(row["DEFAULT_LIST_VALUE"])
                     else:
-                        data_id_table.drop(idx, inplace=True)
+                        data_id_table_enriched.drop(idx, inplace=True)
 
             except Exception as e:
                 logger.error(f"Error processing {data_id} at {coord}: {str(e)}")
                 continue 
         # After all processing, ensure TABLE_ID column exists
-        if "TABLE_ID" not in data_id_table.columns:
-            data_id_table["TABLE_ID"] = pd.NA
-        return data_id_table
+        if "TABLE_ID" not in data_id_table_enriched.columns:
+            data_id_table_enriched["TABLE_ID"] = pd.NA
+        return data_id_table_enriched
 
     except Exception as e:
         logger.error(f"Error in load_importdata: {str(e)}")
         raise
+
+def _read_excel_worksheet(input_path: Path, target_worksheet: str) -> pd.DataFrame:
+    """
+    Read data from an Excel worksheet using the appropriate engine.
+    
+    Args:
+        input_path: Path to the Excel file
+        target_worksheet: Name of the worksheet to read
+        
+    Returns:
+        DataFrame containing the worksheet data
+        
+    Raises:
+        ValueError: If file format is not supported
+    """
+    try:
+        if input_path.suffix == ".xlsb":
+            return pd.read_excel(
+                input_path, 
+                sheet_name=target_worksheet, 
+                header=0, 
+                engine="pyxlsb"
+            )
+        elif input_path.suffix == ".xls":
+            return pd.read_excel(
+                input_path, 
+                sheet_name=target_worksheet, 
+                header=0, 
+                engine="xlrd"
+            )
+        else:
+            raise ValueError(
+                f"Unsupported file format: {input_path}. Only .xlsb and .xls files are supported."
+            )
+    except Exception as e:
+        logger.error(
+            f"Error reading worksheet {target_worksheet} from {input_path}: {str(e)}"
+        )
+        raise
+
+def _create_value_lookup_map(
+    df: pd.DataFrame, 
+    worksheet_name: str, 
+    detailed_rm_count: int
+) -> Dict[Tuple[int, int], Any]:
+    """
+    Create a fast lookup dictionary for worksheet values.
+    
+    Args:
+        df: DataFrame containing the worksheet data
+        worksheet_name: Name of the worksheet being processed
+        detailed_rm_count: Maximum number of detailed risk managers to process
+        
+    Returns:
+        Dictionary mapping (row, col) tuples to cell values
+    """
+    value_map: Dict[Tuple[int, int], Any] = {}
+    
+    column_range = range(len(df.columns))
+    if worksheet_name == "CDR - SCR hyp":
+        column_range = range(13 + detailed_rm_count)
+        
+    for col_idx in column_range:
+        for row_idx in range(len(df)):
+            value = df.iloc[row_idx, col_idx]
+            if pd.notna(value):
+                value_map[(row_idx + 2, col_idx + 1)] = value
+                
+    return value_map
 
 
 def cpty_hyp(df : pd.DataFrame):
@@ -409,7 +449,7 @@ def run_Import(
         "ConcR",
         "CurrR",
         "CDR",
-       "CDR - SCR hyp",
+        "CDR - SCR hyp",
         "net Prem CP",
         "LnH SLT UW",
         "Health cat",
@@ -433,46 +473,49 @@ def run_Import(
     if "CDR - SCR hyp" in worksheets:
         worksheets.remove("CDR - SCR hyp")
         cdr_scr_hyp_wanted = True
-    # Process each worksheet
+    
+    # Load data_ids for each worksheet
+    combined_data_ids = pd.DataFrame()
     for worksheet in worksheets:
-        data_id_table = load_importdata(
+        sheet_data_id = load_importdata(
             input_p, worksheet
-        )  # Load data for the worksheet
-     
-        dataframes.append(data_id_table)  # Append the DataFrame to the list
-        combined_df = pd.concat(dataframes, ignore_index=True)
-        
-    # check how many conterpartys there are and check with the information from CDR if CDR - SCR hyp is needed 
+        )
+
+        dataframes.append(sheet_data_id)
+        combined_data_ids = pd.concat(dataframes, ignore_index=True)
+
+    final_df = pd.DataFrame()
+    # check how many conterpartys there are and check with the information from CDR if CDR - SCR hyp is needed
     if cdr_scr_hyp_wanted == True:
 
+        RM_flag = combined_data_ids[combined_data_ids["DATA_ID"].str.startswith("CPTY_LGD_EXP_RM_FLG_")]
+        RM_flag = RM_flag[RM_flag["VALUE"] == "yes"]
+        RM_flag_list = RM_flag["VALUE"].tolist()
+        RM_effect = combined_data_ids[combined_data_ids["DATA_ID"].str.startswith("CPTY_LGD_RM_EFFECT_")]
+        RM_effect_list = RM_effect["VALUE"].tolist()
+        RM_simpl_flag = combined_data_ids[combined_data_ids["DATA_ID"].str.startswith("CPTY_LGD_RM_SIMPL_FLG_")]
+        RM_simpl = RM_simpl_flag[RM_simpl_flag["VALUE"]== "yes"]
+        RM_simpl_list = RM_simpl["VALUE"].tolist()
+        
+        if(len(RM_simpl_list) > 0):
+            include_simplified_RM = True
+        else:
+            include_simplified_RM = False
 
-        check = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_EXP_RM_FLG_")]
-        check = check[check["VALUE"] == "yes"]
-        check_list = check["VALUE"].tolist()
-        check2 = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_RM_EFFECT_")]
-        check_list2 = check2["VALUE"].tolist()
-        check3 = combined_df[combined_df["DATA_ID"].str.startswith("CPTY_LGD_RM_SIMPL_FLG_")]
-        check_list3 = check3[check3["VALUE"] =="no"]
-        check_list3 = check_list3["VALUE"].tolist()
-        check_list4 = check3[check3["VALUE"]== "yes"]
-        check_list4 = check_list4["VALUE"].tolist()
-        if len(check_list) > len(check_list2):
-            limit = min(len(check_list) - len(check_list2),len(check_list3))
-            if check_list4 != []:
-                data_id_table = load_importdata(
-                        input_p,"CDR - SCR hyp",limit 
-                )
-            else:
-                data_id_table= load_importdata(
-                        input_p,"CDR - SCR hyp",limit,True
-                )
-            
-            combined_df = pd.concat([combined_df,data_id_table], ignore_index=True)
-        final_df = cpty_hyp(combined_df)
+        if len(RM_flag_list) > len(RM_effect_list):
+            limit = len(RM_flag_list) - len(RM_effect_list) - len(RM_simpl_list) + 1
+            print(f"CDR - SCR hyp: {limit} counterparties with RM flag but no RM effect found. Using limit {limit}.")
+            cpty_hyp_data = load_importdata(
+                    input_p,"CDR - SCR hyp",limit, include_simplified_RM
+            )
+
+
+            combined_data_ids = pd.concat([combined_data_ids,cpty_hyp_data], ignore_index=True)
+        final_df = cpty_hyp(combined_data_ids)
 
     # Combine all DataFrames into a single DataFrame
-    
-    
+    final_df = pd.concat([final_df, combined_data_ids], ignore_index=True)
+
     return final_df # Return the combined DataFrame
 
 
@@ -534,16 +577,12 @@ def get_dataframe(data_id_enriched: pd.DataFrame, table_id: str) -> pd.DataFrame
 if __name__ == "__main__":
 
    
-    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.01_SAS_Input_CDR.xls")
+    goal_dataframe = run_Import("/workspaces/SolvMate/input/04.32_SAS_Input_CDR.xls")
     
 
-
-
-    #testvar = get_dataframe(goal_dataframe, "CPTY_TYPE1")
-    #create excel file
-    output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
-    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        #Write the goal_dataframe to the specified sheet
-        goal_dataframe.to_excel(
-            writer, sheet_name="Goal DataFrame", index=False, header=True
-        )
+    #output_path = Path("/workspaces/SolvMate/outputs/Output_ImportData.xlsx")
+    #with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+    #    #Write the goal_dataframe to the specified sheet
+    #    goal_dataframe.to_excel(
+    #        writer, sheet_name="Goal DataFrame", index=False, header=True
+    #    )
