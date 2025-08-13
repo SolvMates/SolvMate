@@ -156,6 +156,12 @@ class SupabaseDataImporter:
         combined_df = pd.concat(dataframes, ignore_index=True)
         return combined_df  # Return the combined DataFrame
 
+    def read_from_supabase(self, table_name) -> pd.DataFrame:
+        response = self.supabase.table(table_name).select("*").execute()
+        data = response.data
+        df_supabase = pd.DataFrame(data)
+        return df_supabase
+
     def get_dataframe(
         self, data_id_enriched: pd.DataFrame, table_id: str
     ) -> pd.DataFrame:
