@@ -53,7 +53,20 @@ def layout():
                         size="md",
                         n_clicks=0
                     ),
-                    dbc.Spinner(html.Div(id="download-area_e2e"), size="md", color="primary", fullscreen=False)
+                    dbc.Spinner(html.Div(id="download-area_e2e"), size="md", color="primary", fullscreen=False),
+                    dcc.Textarea(
+                        id="log-box",
+                        className="mt-3",
+                        style={'width': '100%', 'height': '200px', 'fontFamily': 'monospace'},
+                        readOnly=True,
+                        placeholder="Execution logs will appear here..."
+                    ),
+                    dcc.Interval(
+                        id='log-update-interval',
+                        interval=500,  # update every 500ms
+                        n_intervals=0,
+                        disabled=True
+                    )
                 ], className="mt-3"),
                 html.Div(id="status-area_e2e", className="mt-3")
         ], fluid=True, className="py-4")
@@ -64,6 +77,26 @@ import tempfile
 import importlib
 from dash import ctx
 import sys
+import threading
+import queue
+import io
+
+# Global variables for log handling
+log_queue = queue.Queue()
+current_run_status = {'running': False}
+
+# Custom stdout redirector
+class StreamToQueue(io.StringIO):
+    def __init__(self, queue):
+        super().__init__()
+        self.queue = queue
+
+    def write(self, text):
+        if text.strip():  # Only queue non-empty lines
+            self.queue.put(f"[{datetime.now().strftime('%H:%M:%S')}] {text.strip()}")
+
+    def flush(self):
+        pass
 sys.path.insert(0, "/workspaces/SolvMate")
 from datetime import datetime, timezone
 from src.utils import output
@@ -87,30 +120,82 @@ import random
         Output("start-calculation-button", "disabled"),
         Output("start-calculation-button", "children"),
         Output("download-area_e2e", "children"),
-        Output("selected-filename", "children")
+        Output("selected-filename", "children"),
+        Output("log-box", "value"),
+        Output("log-update-interval", "disabled")
     ],
     [
         Input("start-calculation-button", "n_clicks"),
-        Input("file-path-input", "filename")
+        Input("file-path-input", "filename"),
+        Input("log-update-interval", "n_intervals")
     ],
     [
         State("file-path-input", "contents"),
         State("file-path-input", "filename"),
         State("description-input", "value"),
-        State("scope-input", "value")
+        State("scope-input", "value"),
+        State("log-box", "value")
     ],
     prevent_initial_call=True
 )
-def handle_start_calculation(n_clicks, uploaded_filename, file_contents, file_name, description, scope):
+def handle_calculation(n_clicks, uploaded_filename, n_intervals, file_contents, file_name, description, scope, current_log):
     ctx_triggered = ctx.triggered_id if hasattr(ctx, 'triggered_id') else None
     filename_display = f"Selected file: {uploaded_filename}" if uploaded_filename else "No file selected."
+    
+    # Handle file selection
     if ctx_triggered == "file-path-input":
-        # Only update filename display
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, filename_display
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, filename_display, dash.no_update, dash.no_update
+    
+    # Handle interval updates
+    if ctx_triggered == "log-update-interval":
+        if not current_run_status['running']:
+            # If calculation is not running, collect all remaining logs
+            logs = []
+            while not log_queue.empty():
+                logs.append(log_queue.get())
+            
+            if logs:  # If we have final logs to show
+                log_text = current_log + "\n" + "\n".join(logs) if current_log else "\n".join(logs)
+                if "Error during run" in log_text:
+                    return (
+                        dbc.Alert("Calculation failed. See logs for details.", color="danger"),
+                        False,  # enable button
+                        "Start calculation",
+                        None,
+                        dash.no_update,
+                        log_text,
+                        True  # disable interval
+                    )
+                else:
+                    return (
+                        dbc.Alert("Calculation completed successfully!", color="success"),
+                        False,  # enable button
+                        "Start calculation",
+                        None,
+                        dash.no_update,
+                        log_text,
+                        True  # disable interval
+                    )
+            
+            return dash.no_update, False, "Start calculation", dash.no_update, dash.no_update, dash.no_update, True
+        
+        # If calculation is still running, show current logs
+        logs = []
+        while not log_queue.empty():
+            logs.append(log_queue.get())
+        
+        if logs:
+            log_text = current_log + "\n" + "\n".join(logs) if current_log else "\n".join(logs)
+            return dash.no_update, True, "Running...", dash.no_update, dash.no_update, log_text, False
+        
+        return dash.no_update, True, "Running...", dash.no_update, dash.no_update, dash.no_update, False
+    
+    # Handle start button click
     if not file_contents or not file_name:
-        return dbc.Alert("Please select an input file.", color="warning"), False, "Start calculation", None, filename_display
+        return dbc.Alert("Please select an input file.", color="warning"), False, "Start calculation", None, filename_display, "", True
     if not description or not description.strip():
-        return dbc.Alert("Please enter a description before running.", color="warning"), False, "Start calculation", None, filename_display
+        return dbc.Alert("Please enter a description before running.", color="warning"), False, "Start calculation", None, filename_display, "", True
+    
     # Save uploaded file to a temp location
     content_type, content_string = file_contents.split(',')
     decoded = base64.b64decode(content_string)
@@ -130,41 +215,49 @@ def handle_start_calculation(n_clicks, uploaded_filename, file_contents, file_na
     }
     if supabase is not None:
         supabase.table("run_status").insert(run_data).execute()
-    # Import and run calculation
-    try:
-        solvmate_main = importlib.import_module("src.solvmate_main")
-        solvmate_main.run_calculation(temp_input_path, run_id)
-        # Find output file (assuming output.fill_QRT_from_dataframe writes to run_output_path)
-        output_dir = os.path.join("/workspaces/SolvMate/outputs", str(run_id))
-        # Find the first .xlsx file in output_dir
-        output_file = None
-        for f in os.listdir(output_dir):
-            if f.endswith(".xlsx"):
-                output_file = os.path.join(output_dir, f)
-                break
-        if output_file:
-            # Prepare download link
-            with open(output_file, "rb") as f:
-                encoded = base64.b64encode(f.read()).decode()
-            download_button = dcc.Download(id="download-output-e2e")
-            download_link = html.A(
-                "Download Output",
-                id="download-link-e2e",
-                download=os.path.basename(output_file),
-                href=f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{encoded}",
-                target="_blank",
-                className="btn btn-success mt-3"
-            )
-            status = dbc.Alert(f"Run completed successfully. Results saved in: {output_file}", color="success")
-            return status, False, "Start calculation", download_link, filename_display
-        else:
-            status = dbc.Alert("Run finished, but no output file was found.", color="warning")
-            return status, False, "Start calculation", None, filename_display
-    except Exception as e:
-        update_run_status = getattr(importlib.import_module("src.solvmate_main"), "update_run_status")
-        update_run_status(run_id, "failed", datetime.now(timezone.utc))
-        status = dbc.Alert(f"Error during run: {str(e)}", color="danger")
-        return status, False, "Start calculation", None, filename_display
+    # Set running status and clear previous logs
+    current_run_status['running'] = True
+    while not log_queue.empty():
+        log_queue.get()
+    
+    def run_calculation_thread():
+        # Save the original stdout
+        old_stdout = sys.stdout
+        try:
+            # Redirect stdout to our custom handler
+            sys.stdout = StreamToQueue(log_queue)
+            
+            print("Starting calculation...")
+            print(f"Run ID: {run_id}")
+            print(f"Processing file: {file_name}")
+            
+            # Import and run the calculation
+            solvmate_main = importlib.import_module("src.solvmate_main")
+            solvmate_main.run_calculation(temp_input_path, run_id)
+            
+            print("Calculation completed successfully")
+            
+        except Exception as e:
+            print(f"Error during run: {str(e)}")
+            raise e
+        finally:
+            # Always restore the original stdout and mark as not running
+            sys.stdout = old_stdout
+            current_run_status['running'] = False
 
-# Make layout available at module level
+    # Start calculation in a separate thread
+    calculation_thread = threading.Thread(target=run_calculation_thread)
+    calculation_thread.start()
+    
+    # Return immediately to disable the button
+    # Return immediately to disable the button and enable the interval
+    return (
+        dbc.Alert("Calculation started...", color="info"),
+        True,  # disable button
+        "Running...",
+        None,
+        filename_display,
+        "Starting calculation...",
+        False  # enable interval
+    )# Make layout available at module level
 __all__ = ['layout']
